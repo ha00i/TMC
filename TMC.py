@@ -60,7 +60,7 @@ STYLE_SHEET = """
     QMenu { background-color: #34495e; border: 1px solid #566573; } QMenu::item:selected { background-color: #3498db; }
 """
 
-# --- Kelas Worker Selenium --- (Tidak ada perubahan di sini)
+# --- Kelas Worker Selenium ---
 class SeleniumWorker(QObject):
     finished = pyqtSignal(tuple)
     progress = pyqtSignal(str)
@@ -132,8 +132,8 @@ class SeleniumWorker(QObject):
             long_wait.until(EC.invisibility_of_element_located((by, selector)))
             self.progress.emit(f"    -> Elemen '{selector}' berhasil hilang.")
         elif action == "Verifikasi Elemen TIDAK Muncul":
-            self.progress.emit(f"  - Verifikasi: Memastikan elemen '{selector}' TIDAK muncul (max 4 detik)...")
-            short_wait = WebDriverWait(self.driver, 4)
+            self.progress.emit(f"  - Verifikasi: Memastikan elemen '{selector}' TIDAK muncul (max 5 detik)...")
+            short_wait = WebDriverWait(self.driver, 5)
             try:
                 short_wait.until(EC.visibility_of_element_located((by, selector)))
                 raise AssertionError(f"Verifikasi Gagal! Elemen '{selector}' seharusnya TIDAK muncul, tapi ditemukan.")
@@ -179,7 +179,7 @@ class SeleniumWorker(QObject):
                 if not self.flow_settings.get("headless"): time.sleep(3)
                 self.driver.quit()
 
-# --- Dialog untuk Menambah/Edit Aksi --- (Hanya untuk menambah)
+# --- Dialog untuk Menambah Aksi ---
 class ActionDialog(QDialog):
     def __init__(self, action_data=None, parent=None):
         super().__init__(parent)
@@ -221,7 +221,7 @@ class ActionDialog(QDialog):
             "value": self.value_input.text() if self.value_input.isVisible() else None
         }
 
-# *** BARU: Delegate untuk ComboBox di dalam Tabel ***
+# --- Delegate untuk ComboBox di dalam Tabel ---
 class ComboBoxDelegate(QStyledItemDelegate):
     def __init__(self, items, parent=None):
         super().__init__(parent)
@@ -245,7 +245,6 @@ class ComboBoxDelegate(QStyledItemDelegate):
 
 # --- Dialog Pengaturan ---
 class SettingsDialog(QDialog):
-    # ... (Metode __init__ dan bagian Environment/Kredensial tidak berubah) ...
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Settings"); self.setMinimumSize(900, 600)
@@ -259,77 +258,172 @@ class SettingsDialog(QDialog):
         self.environments_list.currentItemChanged.connect(self.on_environment_selected)
         self.credentials_list.currentItemChanged.connect(self.on_credential_selected_for_saving)
 
-    # --- Bagian Environment dan Kredensial tidak berubah ---
+    # --- Bagian Environment dan Kredensial dengan PERBAIKAN BUG ---
     def _refresh_environment_list_ui(self):
-        current_selection_text=None;
-        if self.environments_list.currentItem():current_selection_text=self.environments_list.currentItem().text();
-        self.environments_list.clear();self.environments_list.addItems(sorted(self.environments_data.keys()));
+        current_selection_text = None
+        if self.environments_list.currentItem():
+            current_selection_text = self.environments_list.currentItem().text()
+            
+        self.environments_list.clear()
+        self.environments_list.addItems(sorted(self.environments_data.keys()))
+        
         if current_selection_text:
-            items=self.environments_list.findItems(current_selection_text,Qt.MatchFlag.MatchExactly);
-            if items:self.environments_list.setCurrentItem(items[0]);
-        if not self.environments_list.currentItem()and self.environments_list.count()>0:self.environments_list.setCurrentItem(self.environments_list.item(0));
-        if self.environments_list.count()==0:self.on_environment_selected(None);
+            items = self.environments_list.findItems(current_selection_text, Qt.MatchFlag.MatchExactly)
+            if items:
+                self.environments_list.setCurrentItem(items[0])
+
+        if not self.environments_list.currentItem() and self.environments_list.count() > 0:
+            self.environments_list.setCurrentItem(self.environments_list.item(0))
+        
+        if self.environments_list.count() == 0:
+            self.on_environment_selected(None)
+
     def load_environments(self):
-        self.environments_data=json.loads(self.settings.value("environments","{}"));self._refresh_environment_list_ui();active_env_name=self.settings.value("active_environment","");items=self.environments_list.findItems(active_env_name,Qt.MatchFlag.MatchExactly);
-        if items:self.environments_list.setCurrentItem(items[0]);
-        elif self.environments_list.count()>0:self.environments_list.setCurrentItem(self.environments_list.item(0));
+        self.environments_data = json.loads(self.settings.value("environments", "{}"))
+        self._refresh_environment_list_ui()
+        active_env_name = self.settings.value("active_environment", "")
+        items = self.environments_list.findItems(active_env_name, Qt.MatchFlag.MatchExactly)
+        if items:
+            self.environments_list.setCurrentItem(items[0])
+        elif self.environments_list.count() > 0:
+            self.environments_list.setCurrentItem(self.environments_list.item(0))
+
     def remove_environment(self):
-        current_item=self.environments_list.currentItem();
-        if not current_item:return;env_name=current_item.text();reply=QMessageBox.question(self,"Hapus Environment",f"Anda yakin ingin menghapus '{env_name}'?");
-        if reply==QMessageBox.StandardButton.Yes:del self.environments_data[env_name];self._refresh_environment_list_ui();
+        current_item = self.environments_list.currentItem()
+        if not current_item:
+            return
+            
+        env_name = current_item.text()
+        reply = QMessageBox.question(self, "Hapus Environment", f"Anda yakin ingin menghapus '{env_name}'?")
+        if reply == QMessageBox.StandardButton.Yes:
+            del self.environments_data[env_name]
+            self._refresh_environment_list_ui()
+
     def create_environment_tab(self):
         env_widget=QWidget();main_layout=QHBoxLayout(env_widget);left_layout=QVBoxLayout();left_layout.addWidget(QLabel("Daftar Environment:"));self.environments_list=QListWidget();left_layout.addWidget(self.environments_list);btn_layout=QHBoxLayout();self.add_env_button=QPushButton("Tambah");self.add_env_button.clicked.connect(self.add_environment);self.remove_env_button=QPushButton("Hapus");self.remove_env_button.clicked.connect(self.remove_environment);btn_layout.addWidget(self.add_env_button);btn_layout.addWidget(self.remove_env_button);left_layout.addLayout(btn_layout);right_layout=QFormLayout();self.env_name_input=QLineEdit();self.env_name_input.setReadOnly(True);self.env_url_input=QLineEdit();self.save_env_button=QPushButton("Simpan Perubahan URL");self.save_env_button.clicked.connect(self.save_environment_details);right_layout.addRow("Nama Environment:",self.env_name_input);right_layout.addRow("URL:",self.env_url_input);right_layout.addRow(self.save_env_button);main_layout.addLayout(left_layout,1);main_layout.addLayout(right_layout,2);self.tabs.addTab(env_widget,"Environment");
+    
     def create_credentials_tab(self):
         credentials_widget=QWidget();main_layout=QHBoxLayout(credentials_widget);left_layout=QVBoxLayout();self.credentials_label=QLabel("Kredensial untuk Environment:");left_layout.addWidget(self.credentials_label);self.credentials_list=QListWidget();self.credentials_list.itemClicked.connect(self.on_credential_item_clicked);left_layout.addWidget(self.credentials_list);self.remove_button=QPushButton("Hapus Kredensial Terpilih");self.remove_button.clicked.connect(self.remove_selected_credential);left_layout.addWidget(self.remove_button);right_layout=QVBoxLayout();form_group=QGroupBox("Tambah / Edit Kredensial");form_layout=QFormLayout();self.username_input=QLineEdit();self.password_input=QLineEdit();self.password_input.setEchoMode(QLineEdit.EchoMode.Password);form_layout.addRow("Username (Email):",self.username_input);form_layout.addRow("Password:",self.password_input);form_group.setLayout(form_layout);self.add_save_button=QPushButton("Tambah / Simpan Perubahan");self.add_save_button.clicked.connect(self.add_or_update_credential);right_layout.addWidget(form_group);right_layout.addWidget(self.add_save_button);right_layout.addStretch();main_layout.addLayout(left_layout,2);main_layout.addLayout(right_layout,3);self.tabs.addTab(credentials_widget,"Kredensial");
-    def on_environment_selected(self,current_item=None,_=None):
-        if current_item is None:current_item=self.environments_list.currentItem();
-        if not current_item:self.env_name_input.clear();self.env_url_input.clear();self.credentials_list.clear();self.username_input.clear();self.password_input.clear();self.credentials_label.setText("Kredensial (Pilih Environment)");return;
-        env_name=current_item.text();env_details=self.environments_data.get(env_name,{});self.env_name_input.setText(env_name);self.env_url_input.setText(env_details.get("url",""));self.credentials_label.setText(f"Kredensial untuk: {env_name}");self.credentials_list.clear();credentials=env_details.get("credentials",[]);
-        for cred in credentials:self.credentials_list.addItem(cred['username']);
-        active_cred_user=env_details.get("active_credential","");items=self.credentials_list.findItems(active_cred_user,Qt.MatchFlag.MatchExactly);
-        if items:self.credentials_list.setCurrentItem(items[0]);
-        elif self.credentials_list.count()>0:self.credentials_list.setCurrentItem(self.credentials_list.item(0));
-        self.username_input.clear();self.password_input.clear();
-    def on_credential_item_clicked(self,item):
-        username=item.text();current_env_item=self.environments_list.currentItem();
-        if not current_env_item:return;env_name=current_env_item.text();credentials=self.environments_data[env_name].get("credentials",[]);
-        for cred in credentials:
-            if cred['username']==username:self.username_input.setText(cred['username']);self.password_input.setText(cred['password']);break;
-    def add_environment(self):
-        name,ok=QInputDialog.getText(self,"Tambah Environment","Masukkan Nama Environment Baru:");
-        if ok and name and name.strip()and name not in self.environments_data:self.environments_data[name]={"url":"","credentials":[],"active_credential":""};self.environments_list.addItem(name);self.environments_list.setCurrentRow(self.environments_list.count()-1);
-    def save_environment_details(self):
-        current_item=self.environments_list.currentItem();
-        if not current_item:return;
-        env_name=current_item.text();self.environments_data[env_name]["url"]=self.env_url_input.text();QMessageBox.information(self,"Sukses","Perubahan URL telah disimpan.");
-    def add_or_update_credential(self):
-        current_env_item=self.environments_list.currentItem();
-        if not current_env_item:return;
-        env_name=current_env_item.text();username=self.username_input.text().strip();password=self.password_input.text();
-        if not username:return;
-        credentials=self.environments_data[env_name]["credentials"];existing_cred=next((cred for cred in credentials if cred['username']==username),None);
-        if existing_cred:existing_cred['password']=password;
-        else:credentials.append({'username':username,'password':password});
-        self.on_environment_selected(current_env_item);items=self.credentials_list.findItems(username,Qt.MatchFlag.MatchExactly);
-        if items:self.credentials_list.setCurrentItem(items[0]);
-        self.username_input.setText(username);self.password_input.setText(password);QMessageBox.information(self,"Sukses",f"Kredensial untuk '{username}' berhasil disimpan.");
-    def remove_selected_credential(self):
-        current_env_item=self.environments_list.currentItem();current_cred_item=self.credentials_list.currentItem();
-        if not current_env_item or not current_cred_item:return;
-        env_name=current_env_item.text();username_to_remove=current_cred_item.text();reply=QMessageBox.question(self,"Hapus Kredensial",f"Anda yakin ingin menghapus kredensial untuk '{username_to_remove}'?");
-        if reply==QMessageBox.StandardButton.No:return;
-        credentials=self.environments_data[env_name]["credentials"];self.environments_data[env_name]["credentials"]=[c for c in credentials if c['username']!=username_to_remove];self.on_environment_selected(current_env_item);
-    def on_credential_selected_for_saving(self, item, _):
-        current_env_item=self.environments_list.currentItem();
-        if not current_env_item or not item:return;
-        env_name=current_env_item.text();self.environments_data[env_name]["active_credential"]=item.text();
+    
+    def on_environment_selected(self, current_item=None, _=None):
+        if current_item is None:
+            current_item = self.environments_list.currentItem()
+        
+        if not current_item:
+            self.env_name_input.clear()
+            self.env_url_input.clear()
+            self.credentials_list.clear()
+            self.username_input.clear()
+            self.password_input.clear()
+            self.credentials_label.setText("Kredensial (Pilih Environment)")
+            return
 
-    # --- PERUBAHAN BESAR DIMULAI DI SINI ---
+        env_name = current_item.text()
+        env_details = self.environments_data.get(env_name, {})
+        self.env_name_input.setText(env_name)
+        self.env_url_input.setText(env_details.get("url", ""))
+        self.credentials_label.setText(f"Kredensial untuk: {env_name}")
+        self.credentials_list.clear()
+        credentials = env_details.get("credentials", [])
+        
+        for cred in credentials:
+            self.credentials_list.addItem(cred['username'])
+            
+        active_cred_user = env_details.get("active_credential", "")
+        items = self.credentials_list.findItems(active_cred_user, Qt.MatchFlag.MatchExactly)
+        if items:
+            self.credentials_list.setCurrentItem(items[0])
+        elif self.credentials_list.count() > 0:
+            self.credentials_list.setCurrentItem(self.credentials_list.item(0))
+            
+        self.username_input.clear()
+        self.password_input.clear()
+
+    def on_credential_item_clicked(self, item):
+        username = item.text()
+        current_env_item = self.environments_list.currentItem()
+        if not current_env_item:
+            return
+            
+        env_name = current_env_item.text()
+        credentials = self.environments_data[env_name].get("credentials", [])
+        for cred in credentials:
+            if cred['username'] == username:
+                self.username_input.setText(cred['username'])
+                self.password_input.setText(cred['password'])
+                break
+
+    def add_environment(self):
+        name, ok = QInputDialog.getText(self, "Tambah Environment", "Masukkan Nama Environment Baru:")
+        if ok and name and name.strip() and name not in self.environments_data:
+            self.environments_data[name] = {"url": "", "credentials": [], "active_credential": ""}
+            self.environments_list.addItem(name)
+            self.environments_list.setCurrentRow(self.environments_list.count() - 1)
+
+    def save_environment_details(self):
+        current_item = self.environments_list.currentItem()
+        if not current_item:
+            return
+        env_name = current_item.text()
+        self.environments_data[env_name]["url"] = self.env_url_input.text()
+        QMessageBox.information(self, "Sukses", "Perubahan URL telah disimpan.")
+
+    def add_or_update_credential(self):
+        current_env_item = self.environments_list.currentItem()
+        if not current_env_item:
+            return
+            
+        env_name = current_env_item.text()
+        username = self.username_input.text().strip()
+        password = self.password_input.text()
+        if not username:
+            return
+            
+        credentials = self.environments_data[env_name]["credentials"]
+        existing_cred = next((cred for cred in credentials if cred['username'] == username), None)
+        
+        if existing_cred:
+            existing_cred['password'] = password
+        else:
+            credentials.append({'username': username, 'password': password})
+            
+        self.on_environment_selected(current_env_item)
+        items = self.credentials_list.findItems(username, Qt.MatchFlag.MatchExactly)
+        if items:
+            self.credentials_list.setCurrentItem(items[0])
+            
+        self.username_input.setText(username)
+        self.password_input.setText(password)
+        QMessageBox.information(self, "Sukses", f"Kredensial untuk '{username}' berhasil disimpan.")
+
+    def remove_selected_credential(self):
+        current_env_item = self.environments_list.currentItem()
+        current_cred_item = self.credentials_list.currentItem()
+        if not current_env_item or not current_cred_item:
+            return
+            
+        env_name = current_env_item.text()
+        username_to_remove = current_cred_item.text()
+        reply = QMessageBox.question(self, "Hapus Kredensial", f"Anda yakin ingin menghapus kredensial untuk '{username_to_remove}'?")
+        if reply == QMessageBox.StandardButton.No:
+            return
+            
+        credentials = self.environments_data[env_name]["credentials"]
+        self.environments_data[env_name]["credentials"] = [c for c in credentials if c['username'] != username_to_remove]
+        self.on_environment_selected(current_env_item)
+
+    def on_credential_selected_for_saving(self, item, _):
+        current_env_item = self.environments_list.currentItem()
+        if not current_env_item or not item:
+            return
+        env_name = current_env_item.text()
+        self.environments_data[env_name]["active_credential"] = item.text()
+
+    # --- Bagian Flow Management dengan PERBAIKAN BUG TAMBAH/HAPUS ---
     def create_flow_management_tab(self):
         flow_widget = QWidget()
         layout = QHBoxLayout(flow_widget)
         
-        # Panel Kiri
         left_panel = QWidget(); left_layout = QVBoxLayout(left_panel)
         left_layout.addWidget(QLabel("<b>Daftar Alur Tes (Centang untuk diaktifkan):</b>"))
         self.flow_list = QListWidget()
@@ -341,7 +435,6 @@ class SettingsDialog(QDialog):
         flow_button_layout.addWidget(add_flow_btn); flow_button_layout.addWidget(remove_flow_btn)
         left_layout.addLayout(flow_button_layout)
 
-        # Panel Kanan
         right_panel = QWidget(); right_layout = QVBoxLayout(right_panel)
         self.actions_label = QLabel("<b>Langkah/Aksi untuk Alur: -</b>")
         right_layout.addWidget(self.actions_label)
@@ -349,7 +442,7 @@ class SettingsDialog(QDialog):
         self.actions_table.setColumnCount(4)
         self.actions_table.setHorizontalHeaderLabels(["Aksi", "By", "Selector", "Data/Nilai"])
         self.actions_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.actions_table.itemChanged.connect(self.on_action_item_changed) # Terhubung ke penyimpanan real-time
+        self.actions_table.itemChanged.connect(self.on_action_item_changed)
         right_layout.addWidget(self.actions_table)
         
         header = self.actions_table.horizontalHeader()
@@ -358,7 +451,6 @@ class SettingsDialog(QDialog):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         
-        # Setup delegates untuk ComboBox di dalam tabel
         action_items = [
             "Buka URL", "Klik Elemen", "Isi Teks", "Tunggu Elemen Muncul", 
             "Tunggu Elemen Hilang", "Tunggu URL Mengandung", "Verifikasi Teks Elemen", 
@@ -372,7 +464,6 @@ class SettingsDialog(QDialog):
         self.actions_table.setItemDelegateForColumn(0, self.action_delegate)
         self.actions_table.setItemDelegateForColumn(1, self.by_delegate)
         
-        # Layout Tombol Aksi (Tanpa tombol Edit)
         action_button_layout = QHBoxLayout()
         add_action_btn = QPushButton("Tambah Aksi"); add_action_btn.clicked.connect(self.add_action)
         remove_action_btn = QPushButton("Hapus Aksi"); remove_action_btn.clicked.connect(self.remove_action)
@@ -407,16 +498,13 @@ class SettingsDialog(QDialog):
                 {"action": "Tunggu URL Mengandung", "by": None, "selector": None, "value": "dashboard"}
             ]
         }
-    
-    def load_flows(self):
-        try:
-            with open(FLOWS_CONFIG_FILE, 'r') as f: self.flows_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.flows_data = self.add_default_login_flow_data()
-            self.save_flows_to_file()
-        
+
+    def _refresh_flow_list_ui(self):
+        """HANYA menyegarkan QListWidget dari data self.flows_data saat ini."""
         self.active_flows = self.settings.value("active_flows", [], type=list)
         current_selection = self.flow_list.currentItem().text() if self.flow_list.currentItem() else None
+        
+        self.flow_list.blockSignals(True)
         self.flow_list.clear()
         
         new_selection_item = None
@@ -425,13 +513,30 @@ class SettingsDialog(QDialog):
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if flow_name in self.active_flows else Qt.CheckState.Unchecked)
             self.flow_list.addItem(item)
-            if flow_name == current_selection: new_selection_item = item
+            if flow_name == current_selection:
+                new_selection_item = item
         
-        if new_selection_item: self.flow_list.setCurrentItem(new_selection_item)
-        elif self.flow_list.count() > 0: self.flow_list.setCurrentRow(0)
-        else: self.on_flow_selected(None)
+        self.flow_list.blockSignals(False)
+
+        if new_selection_item:
+            self.flow_list.setCurrentItem(new_selection_item)
+        elif self.flow_list.count() > 0:
+            self.flow_list.setCurrentRow(0)
+        else:
+            self.on_flow_selected(None)
+    
+    def load_flows(self):
+        """Membaca data dari file JSON lalu menyegarkan UI."""
+        try:
+            with open(FLOWS_CONFIG_FILE, 'r') as f: self.flows_data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.flows_data = self.add_default_login_flow_data()
+            self.save_flows_to_file()
+        
+        self._refresh_flow_list_ui()
 
     def save_flows_to_file(self):
+        """Menyimpan data self.flows_data ke file JSON."""
         try:
             with open(FLOWS_CONFIG_FILE, 'w') as f: json.dump(self.flows_data, f, indent=4)
         except Exception as e:
@@ -459,7 +564,7 @@ class SettingsDialog(QDialog):
         actions = self.flows_data.get(flow_name, [])
         self.actions_table.setRowCount(len(actions))
         
-        disabled_color = QColor(40, 52, 64) # Warna untuk sel non-aktif
+        disabled_color = QColor(40, 52, 64)
         
         for row, action_data in enumerate(actions):
             action_text = action_data.get("action", "")
@@ -469,7 +574,6 @@ class SettingsDialog(QDialog):
                 item = QTableWidgetItem(str(value if value is not None else ""))
                 self.actions_table.setItem(row, col, item)
             
-            # Atur sel mana yang bisa diedit berdasarkan Aksi
             selector_needed = action_text not in ["Buka URL", "Tunggu URL Mengandung"]
             value_needed = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen"]
             
@@ -481,7 +585,7 @@ class SettingsDialog(QDialog):
                     item.setBackground(disabled_color)
                 else:
                     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-                    item.setBackground(QColor("#212f3d")) # Warna default
+                    item.setBackground(QColor("#212f3d"))
 
         self.actions_table.blockSignals(False)
 
@@ -496,17 +600,14 @@ class SettingsDialog(QDialog):
             key_to_update = self.column_to_key_map.get(col)
             if key_to_update:
                 new_value = item.text()
-                # Jika 'By' dikosongkan, jadikan None di data
                 if key_to_update == 'by' and not new_value:
                     self.flows_data[flow_name][row][key_to_update] = None
                 else:
                     self.flows_data[flow_name][row][key_to_update] = new_value
             
-            # Jika kolom Aksi yang berubah, refresh seluruh baris untuk update flag editable
             if col == 0:
                 self.on_flow_selected(current_flow_item)
                 self.actions_table.selectRow(row)
-
 
     def add_flow(self):
         name, ok = QInputDialog.getText(self, "Tambah Alur Tes", "Masukkan Nama Alur Baru:")
@@ -514,8 +615,15 @@ class SettingsDialog(QDialog):
             name = name.strip()
             if name in self.flows_data:
                 QMessageBox.warning(self, "Gagal", f"Alur dengan nama '{name}' sudah ada."); return
+            
+            # 1. Update data di memori
             self.flows_data[name] = []
-            self.load_flows()
+            # 2. SIMPAN PERUBAHAN KE FILE SECARA LANGSUNG
+            self.save_flows_to_file()
+            # 3. Segarkan tampilan UI dari data memori yang sudah update
+            self._refresh_flow_list_ui()
+            
+            # 4. Pilih item yang baru ditambahkan
             items = self.flow_list.findItems(name, Qt.MatchFlag.MatchExactly)
             if items: self.flow_list.setCurrentItem(items[0])
 
@@ -525,8 +633,12 @@ class SettingsDialog(QDialog):
         flow_name = current_item.text()
         reply = QMessageBox.question(self, "Hapus Alur", f"Anda yakin ingin menghapus alur '{flow_name}'?")
         if reply == QMessageBox.StandardButton.Yes:
+            # 1. Hapus data dari memori
             del self.flows_data[flow_name]
-            self.load_flows()
+            # 2. SIMPAN PERUBAHAN KE FILE SECARA LANGSUNG
+            self.save_flows_to_file()
+            # 3. Segarkan tampilan UI
+            self._refresh_flow_list_ui()
 
     def add_action(self):
         current_flow_item = self.flow_list.currentItem()
@@ -569,7 +681,7 @@ class SettingsDialog(QDialog):
         self.save_settings()
         super().accept()
 
-# --- Jendela Utama Aplikasi --- (Tidak ada perubahan di sini)
+# --- Jendela Utama Aplikasi ---
 class TestRunnerApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -583,8 +695,10 @@ class TestRunnerApp(QMainWindow):
     
     def _create_left_panel(self):
         left_widget=QWidget();left_layout=QVBoxLayout(left_widget);left_layout.setContentsMargins(0,0,0,0);left_layout.setSpacing(10);left_layout.addWidget(QLabel("<h3>Pengaturan Cepat</h3>"));left_layout.addWidget(QLabel("<b>Environment:</b>"));self.env_combo=QComboBox();self.env_combo.currentTextChanged.connect(self._populate_credentials_for_env);left_layout.addWidget(self.env_combo);left_layout.addWidget(QLabel("<b>Kredensial Aktif:</b>"));self.cred_combo=QComboBox();left_layout.addWidget(self.cred_combo);left_layout.addWidget(QLabel("<b>Browser:</b>"));self.browser_combo=QComboBox();self.browser_combo.addItems(["chrome","firefox"]);left_layout.addWidget(self.browser_combo);left_layout.addStretch();self.settings_button=QPushButton("Manage Settings");self.settings_button.clicked.connect(self.open_settings_dialog);left_layout.addWidget(self.settings_button);self.main_layout.addWidget(left_widget);
+    
     def _create_right_panel(self):
         right_widget=QWidget();right_layout=QVBoxLayout(right_widget);right_layout.setContentsMargins(0,0,0,0);right_layout.setSpacing(10);self.run_button=QPushButton("Jalankan Rangkaian Tes");self.run_button.clicked.connect(self.start_test);self.tabs=QTabWidget();self.log_area=QTextEdit();self.log_area.setReadOnly(True);self.tabs.addTab(self.log_area,"Log Hasil");self.summary_area=QTextEdit();self.summary_area.setReadOnly(True);self.tabs.addTab(self.summary_area,"Ringkasan");self.export_button=QPushButton("Export Hasil Tes");self.export_button.clicked.connect(self.export_results);right_layout.addWidget(self.run_button);right_layout.addWidget(self.tabs);right_layout.addWidget(self.export_button);self.main_layout.addWidget(right_widget);
+    
     def _load_and_set_environments(self):
         self.environments_data=json.loads(self.settings.value("environments","{}"));self.env_combo.blockSignals(True);self.env_combo.clear();
         if not self.environments_data: self.env_combo.addItem("Tidak ada environment");self.env_combo.setEnabled(False);self.cred_combo.setEnabled(False);self.run_button.setEnabled(False);
@@ -592,6 +706,7 @@ class TestRunnerApp(QMainWindow):
             self.env_combo.addItems(sorted(self.environments_data.keys()));self.env_combo.setEnabled(True);self.cred_combo.setEnabled(True);self.run_button.setEnabled(True);active_env=self.settings.value("active_environment","");
             if active_env in self.environments_data: self.env_combo.setCurrentText(active_env);
         self.env_combo.blockSignals(False);self._populate_credentials_for_env(self.env_combo.currentText());
+    
     def _populate_credentials_for_env(self,env_name):
         self.cred_combo.clear();
         if env_name and env_name in self.environments_data:
@@ -600,6 +715,7 @@ class TestRunnerApp(QMainWindow):
             else:
                 usernames=[cred['username']for cred in credentials];self.cred_combo.addItems(usernames);self.cred_combo.setEnabled(True);active_cred=env_details.get("active_credential","");
                 if active_cred in usernames: self.cred_combo.setCurrentText(active_cred);
+    
     def open_settings_dialog(self):
         dialog=SettingsDialog(self);
         if dialog.exec(): self.log("Settings disimpan.");self._load_and_set_environments();
@@ -638,13 +754,15 @@ class TestRunnerApp(QMainWindow):
         self.thread.finished.connect(self.thread.deleteLater); self.thread.start()
 
     def log(self,message):self.log_area.append(message);
+    
     def on_test_finished(self,result):
         success,message,screenshot_path=result;self.summary_area.clear();summary_text=f"Hasil Tes: {'SUKSES' if success else 'GAGAL'}\n";summary_text+=f"Pesan: {message}\n";original_color=self.log_area.textColor();
         if success: self.log_area.setTextColor(QColor("#2ecc71"));self.summary_area.setStyleSheet("color: #2ecc71;");
         else:
             self.log_area.setTextColor(QColor("#e74c3c"));self.summary_area.setStyleSheet("color: #e74c3c;");
             if screenshot_path:summary_text+=f"Screenshot Error: {os.path.abspath(screenshot_path)}\n";
-        self.log(f"\n--- HASIL: {'RANGKAIAN TES SELESEI' if success else 'GAGAL'} ---");self.log(message);self.summary_area.setText(summary_text);self.log_area.setTextColor(original_color);self.run_button.setEnabled(True);
+        self.log(f"\n--- HASIL: {'RANGKAIN TES SELESEI' if success else 'GAGAL'} ---");self.log(message);self.summary_area.setText(summary_text);self.log_area.setTextColor(original_color);self.run_button.setEnabled(True);
+    
     def export_results(self):
         log_content=self.log_area.toPlainText();summary_content=self.summary_area.toPlainText();
         if not log_content and not summary_content: QMessageBox.warning(self,"Export Gagal","Tidak ada hasil tes untuk diexport.");return;

@@ -43,21 +43,9 @@
             "value": null
         },
         {
-            "action": "Tunggu Elemen Hilang",
+            "action": "Verifikasi Teks Elemen",
             "by": "XPath",
-            "selector": "//*[contains(text(), 'Tab is loading')]",
-            "value": null
-        },
-        {
-            "action": "Tunggu Elemen Hilang",
-            "by": "XPath",
-            "selector": "//*[contains(text(), 'Processing')]",
-            "value": null
-        },
-        {
-            "action": "Tunggu Elemen Muncul",
-            "by": "XPath",
-            "selector": "//h1[contains(text(), 'Dashboard')]",
+            "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
             "value": null
         }
     ],
