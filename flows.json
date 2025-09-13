@@ -1,5 +1,5 @@
 {
-    "test_login_akurat": [
+    "01.Test_login_akurat": [
         {
             "action": "Buka URL",
             "by": null,
@@ -43,13 +43,13 @@
             "value": null
         },
         {
-            "action": "Verifikasi Teks Elemen",
-            "by": "XPath",
-            "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
+            "action": "Verifikasi Elemen TIDAK Muncul",
+            "by": "ID",
+            "selector": "swal2-content",
             "value": null
         }
     ],
-    "test_logout": [
+    "03.test_logout": [
         {
             "action": "Tunggu Elemen Muncul",
             "by": "XPath",
@@ -66,6 +66,50 @@
             "action": "Tunggu Elemen Muncul",
             "by": "ID",
             "selector": "email",
+            "value": null
+        }
+    ],
+    "02.Master Barang - Input Sukses": [
+        {
+            "action": "Klik Elemen",
+            "by": "XPath",
+            "selector": "//aside//p[normalize-space()='Master Data']/ancestor::a[1]",
+            "value": null
+        },
+        {
+            "action": "Tunggu Elemen Muncul",
+            "by": "XPath",
+            "selector": "//aside//p[normalize-space()='Master Data']/ancestor::li[contains(@class, 'menu-open')]",
+            "value": null
+        },
+        {
+            "action": "Klik Elemen",
+            "by": "XPath",
+            "selector": "//aside//p[normalize-space()='Barang']/ancestor::a[1]",
+            "value": null
+        },
+        {
+            "action": "Tunggu Elemen Muncul",
+            "by": "XPath",
+            "selector": "//aside//p[normalize-space()='Barang']/ancestor::li[contains(@class, 'menu-open')]",
+            "value": null
+        },
+        {
+            "action": "Klik Elemen",
+            "by": "XPath",
+            "selector": "//aside//p[normalize-space()='Kelompok Barang']/ancestor::a[1]",
+            "value": null
+        },
+        {
+            "action": "Tunggu Elemen Muncul",
+            "by": "ID",
+            "selector": "New",
+            "value": null
+        },
+        {
+            "action": "Klik Elemen",
+            "by": "ID",
+            "selector": "New",
             "value": null
         }
     ]
