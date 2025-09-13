@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QTabWidget, QCheckBox, QGroupBox, QListWidget,
                              QHBoxLayout, QListWidgetItem, QMessageBox, QInputDialog,
                              QFileDialog, QTableWidget, QTableWidgetItem,
-                             QAbstractItemView, QHeaderView)
+                             QAbstractItemView, QHeaderView, QStyledItemDelegate)
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, QSettings, Qt
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon
 
@@ -18,13 +18,17 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, InvalidArgumentException
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.firefox import GeckoDriverManager
+
+# --- Variabel Global untuk path file konfigurasi ---
+FLOWS_CONFIG_FILE = "flows.json"
+
 
 # --- Stylesheet untuk Flat UI ---
 STYLE_SHEET = """
@@ -42,12 +46,13 @@ STYLE_SHEET = """
     QTabWidget::pane { border: 1px solid #34495e; border-radius: 5px; }
     QTabBar::tab { background: #34495e; color: #ecf0f1; border: 1px solid #566573; border-bottom: none; border-top-left-radius: 5px; border-top-right-radius: 5px; padding: 8px; margin-right: 2px; }
     QTabBar::tab:selected, QTabBar::tab:hover { background: #4e6a85; }
-    QLineEdit { background-color: #212f3d; border: 1px solid #566573; border-radius: 5px; padding: 4px; }
+    QLineEdit { background-color: #212f3d; border: 1px solid #566573; border-radius: 5px; padding: 4px; color: #ecf0f1; }
     QListWidget { background-color: #212f3d; border: 1px solid #566573; border-radius: 5px; }
     QListWidget::item:hover { background-color: #34495e; }
     QListWidget::item:selected { background-color: #3498db; color: white; }
     QTableWidget { background-color: #212f3d; border: 1px solid #566573; border-radius: 5px; gridline-color: #34495e; }
     QTableWidget::item { padding: 5px; }
+    QTableWidget::item:selected { background-color: #3498db; color: white; }
     QHeaderView::section { background-color: #34495e; padding: 4px; border: 1px solid #566573; font-weight: bold; }
     QGroupBox { border: 1px solid #566573; border-radius: 5px; margin-top: 1ex; }
     QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
@@ -55,7 +60,7 @@ STYLE_SHEET = """
     QMenu { background-color: #34495e; border: 1px solid #566573; } QMenu::item:selected { background-color: #3498db; }
 """
 
-# --- Kelas Worker Selenium ---
+# --- Kelas Worker Selenium --- (Tidak ada perubahan di sini)
 class SeleniumWorker(QObject):
     finished = pyqtSignal(tuple)
     progress = pyqtSignal(str)
@@ -73,14 +78,19 @@ class SeleniumWorker(QObject):
     def _replace_placeholders(self, value):
         if not isinstance(value, str): return value
         return value.replace("{URL}", self.url).replace("{USERNAME}", self.username).replace("{PASSWORD}", self.password)
-    
+
     def _execute_action(self, action_data):
         action = action_data.get("action")
-        by = self.BY_MAP.get(action_data.get("by"))
+        by_string = action_data.get("by")
+        by = self.BY_MAP.get(by_string)
         selector = self._replace_placeholders(action_data.get("selector"))
         value = self._replace_placeholders(action_data.get("value"))
-        
-        self.progress.emit(f"  - Aksi: {action}, Selector: {selector or 'N/A'}, Value: {value or 'N/A'}")
+
+        self.progress.emit(f"  - Aksi: {action}, By: {by_string or 'N/A'}, Selector: {selector or 'N/A'}, Value: {value or 'N/A'}")
+
+        if action not in ["Buka URL", "Tunggu URL Mengandung"] and (not by or not selector):
+            raise ValueError(f"Aksi '{action}' memerlukan 'By' dan 'Selector' yang valid.")
+
         wait = WebDriverWait(self.driver, 10)
 
         if action == "Buka URL":
@@ -116,6 +126,19 @@ class SeleniumWorker(QObject):
             if value not in element_text:
                 raise AssertionError(f"Verifikasi Gagal! Teks '{value}' tidak ditemukan di elemen. Teks aktual: '{element_text}'")
             self.progress.emit(f"  - Verifikasi Teks Berhasil!")
+        elif action == "Tunggu Elemen Hilang":
+            self.progress.emit(f"    -> Menunggu elemen '{selector}' untuk hilang...")
+            long_wait = WebDriverWait(self.driver, 25)
+            long_wait.until(EC.invisibility_of_element_located((by, selector)))
+            self.progress.emit(f"    -> Elemen '{selector}' berhasil hilang.")
+        elif action == "Verifikasi Elemen TIDAK Muncul":
+            self.progress.emit(f"  - Verifikasi: Memastikan elemen '{selector}' TIDAK muncul (max 4 detik)...")
+            short_wait = WebDriverWait(self.driver, 4)
+            try:
+                short_wait.until(EC.visibility_of_element_located((by, selector)))
+                raise AssertionError(f"Verifikasi Gagal! Elemen '{selector}' seharusnya TIDAK muncul, tapi ditemukan.")
+            except TimeoutException:
+                self.progress.emit("    -> Verifikasi Berhasil: Elemen tidak muncul seperti yang diharapkan.")
         else:
             raise NotImplementedError(f"Aksi '{action}' tidak dikenali.")
 
@@ -138,8 +161,13 @@ class SeleniumWorker(QObject):
                 self.progress.emit(f"\n--- Menjalankan Alur: {flow_name} ---")
                 for action_data in actions: self._execute_action(action_data)
             self.finished.emit((True, "Semua alur tes berhasil diselesaikan.", None))
+        except (InvalidArgumentException, ValueError) as e:
+            error_message = f"Error Konfigurasi Aksi: {str(e)}"
+            self.progress.emit(error_message)
+            self.finished.emit((False, error_message, None))
         except Exception as e:
-            error_message = f"Error pada rangkaian tes: {str(e)}"; self.progress.emit(error_message)
+            error_message = f"Error pada rangkaian tes: {type(e).__name__}: {str(e)}"
+            self.progress.emit(error_message)
             screenshot_path = "flow_error.png"
             if self.driver:
                 try: self.driver.save_screenshot(screenshot_path); self.progress.emit(f"Screenshot error disimpan di {screenshot_path}")
@@ -151,16 +179,17 @@ class SeleniumWorker(QObject):
                 if not self.flow_settings.get("headless"): time.sleep(3)
                 self.driver.quit()
 
-# --- Dialog untuk Menambah/Edit Aksi ---
+# --- Dialog untuk Menambah/Edit Aksi --- (Hanya untuk menambah)
 class ActionDialog(QDialog):
     def __init__(self, action_data=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Tambah/Edit Aksi"); self.layout = QFormLayout(self)
+        self.setWindowTitle("Tambah Aksi"); self.layout = QFormLayout(self)
         self.action_combo = QComboBox()
         self.action_combo.addItems([
-            "Buka URL", "Klik Elemen", "Isi Teks", 
+            "Buka URL", "Klik Elemen", "Isi Teks",
+            "Tunggu Elemen Muncul", "Tunggu Elemen Hilang", "Tunggu URL Mengandung",
+            "Verifikasi Teks Elemen", "Verifikasi Elemen TIDAK Muncul",
             "Centang Checkbox (Ensure Checked)", "Hapus Centang Checkbox (Ensure Unchecked)",
-            "Tunggu Elemen Muncul", "Tunggu URL Mengandung", "Verifikasi Teks Elemen",
             "Verifikasi Checkbox Tercentang", "Verifikasi Checkbox Tidak Tercentang"
         ])
         self.by_combo = QComboBox(); self.by_combo.addItems(["ID", "XPath", "Name", "Class Name", "CSS Selector", "Link Text"])
@@ -172,37 +201,17 @@ class ActionDialog(QDialog):
         self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.button_box.accepted.connect(self.accept); self.button_box.rejected.connect(self.reject)
         self.layout.addWidget(self.button_box); self.action_combo.currentTextChanged.connect(self.update_ui_for_action)
-        if action_data:
-            self.action_combo.setCurrentText(action_data.get("action") or "Klik Elemen")
-            self.by_combo.setCurrentText(action_data.get("by") or "ID")
-            self.selector_input.setText(action_data.get("selector") or "")
-            self.value_input.setText(action_data.get("value") or "")
         self.update_ui_for_action(self.action_combo.currentText())
 
     def update_ui_for_action(self, action_text):
         selector_is_needed = action_text not in ["Buka URL", "Tunggu URL Mengandung"]
         value_is_needed = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen"]
-        
         self.by_combo.setVisible(selector_is_needed)
         self.selector_input.setVisible(selector_is_needed)
         self.value_input.setVisible(value_is_needed)
-
         self.layout.labelForField(self.by_combo).setVisible(selector_is_needed)
         self.layout.labelForField(self.selector_input).setVisible(selector_is_needed)
         self.layout.labelForField(self.value_input).setVisible(value_is_needed)
-
-        if action_text == "Buka URL":
-            self.layout.labelForField(self.value_input).setText("URL (kosongkan untuk URL env):")
-            self.value_input.setPlaceholderText("Contoh: {URL} atau https://google.com")
-        elif action_text == "Isi Teks":
-            self.layout.labelForField(self.value_input).setText("Teks untuk diisi:")
-            self.value_input.setPlaceholderText("Contoh: {USERNAME} atau teks statis")
-        elif action_text == "Tunggu URL Mengandung":
-             self.layout.labelForField(self.value_input).setText("Bagian dari URL:")
-             self.value_input.setPlaceholderText("Contoh: dashboard")
-        else:
-             self.layout.labelForField(self.value_input).setText("Data/Nilai:")
-             self.value_input.setPlaceholderText("")
 
     def get_data(self):
         return {
@@ -212,11 +221,34 @@ class ActionDialog(QDialog):
             "value": self.value_input.text() if self.value_input.isVisible() else None
         }
 
+# *** BARU: Delegate untuk ComboBox di dalam Tabel ***
+class ComboBoxDelegate(QStyledItemDelegate):
+    def __init__(self, items, parent=None):
+        super().__init__(parent)
+        self.items = items
+
+    def createEditor(self, parent, option, index):
+        editor = QComboBox(parent)
+        editor.addItems(self.items)
+        return editor
+
+    def setEditorData(self, editor, index):
+        value = index.model().data(index, Qt.ItemDataRole.EditRole)
+        if value in self.items:
+            editor.setCurrentText(value)
+
+    def setModelData(self, editor, model, index):
+        model.setData(index, editor.currentText(), Qt.ItemDataRole.EditRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(option.rect)
+
 # --- Dialog Pengaturan ---
 class SettingsDialog(QDialog):
+    # ... (Metode __init__ dan bagian Environment/Kredensial tidak berubah) ...
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Settings"); self.setMinimumSize(800, 600)
+        self.setWindowTitle("Settings"); self.setMinimumSize(900, 600)
         self.settings = QSettings("CVSuudRokok88", "TestRunnerApp")
         main_layout = QVBoxLayout(self); self.tabs = QTabWidget(); main_layout.addWidget(self.tabs)
         self.create_environment_tab(); self.create_credentials_tab(); self.create_flow_management_tab()
@@ -226,7 +258,8 @@ class SettingsDialog(QDialog):
         self.load_environments()
         self.environments_list.currentItemChanged.connect(self.on_environment_selected)
         self.credentials_list.currentItemChanged.connect(self.on_credential_selected_for_saving)
-    
+
+    # --- Bagian Environment dan Kredensial tidak berubah ---
     def _refresh_environment_list_ui(self):
         current_selection_text=None;
         if self.environments_list.currentItem():current_selection_text=self.environments_list.currentItem().text();
@@ -286,146 +319,257 @@ class SettingsDialog(QDialog):
         env_name=current_env_item.text();username_to_remove=current_cred_item.text();reply=QMessageBox.question(self,"Hapus Kredensial",f"Anda yakin ingin menghapus kredensial untuk '{username_to_remove}'?");
         if reply==QMessageBox.StandardButton.No:return;
         credentials=self.environments_data[env_name]["credentials"];self.environments_data[env_name]["credentials"]=[c for c in credentials if c['username']!=username_to_remove];self.on_environment_selected(current_env_item);
-    def on_credential_selected_for_saving(self,item):
+    def on_credential_selected_for_saving(self, item, _):
         current_env_item=self.environments_list.currentItem();
         if not current_env_item or not item:return;
         env_name=current_env_item.text();self.environments_data[env_name]["active_credential"]=item.text();
 
+    # --- PERUBAHAN BESAR DIMULAI DI SINI ---
     def create_flow_management_tab(self):
-        flow_widget = QWidget(); layout = QHBoxLayout(flow_widget)
+        flow_widget = QWidget()
+        layout = QHBoxLayout(flow_widget)
+        
+        # Panel Kiri
         left_panel = QWidget(); left_layout = QVBoxLayout(left_panel)
         left_layout.addWidget(QLabel("<b>Daftar Alur Tes (Centang untuk diaktifkan):</b>"))
-        self.flow_list = QListWidget(); self.flow_list.currentItemChanged.connect(self.on_flow_selected)
+        self.flow_list = QListWidget()
+        self.flow_list.currentItemChanged.connect(self.on_flow_selected)
         left_layout.addWidget(self.flow_list)
         flow_button_layout = QHBoxLayout()
         add_flow_btn = QPushButton("Tambah Alur"); add_flow_btn.clicked.connect(self.add_flow)
         remove_flow_btn = QPushButton("Hapus Alur"); remove_flow_btn.clicked.connect(self.remove_flow)
         flow_button_layout.addWidget(add_flow_btn); flow_button_layout.addWidget(remove_flow_btn)
         left_layout.addLayout(flow_button_layout)
+
+        # Panel Kanan
         right_panel = QWidget(); right_layout = QVBoxLayout(right_panel)
-        self.actions_label = QLabel("<b>Langkah/Aksi untuk Alur: -</b>"); right_layout.addWidget(self.actions_label)
+        self.actions_label = QLabel("<b>Langkah/Aksi untuk Alur: -</b>")
+        right_layout.addWidget(self.actions_label)
         self.actions_table = QTableWidget()
-        self.actions_table.setColumnCount(4); self.actions_table.setHorizontalHeaderLabels(["Aksi", "By", "Selector", "Data/Nilai"])
+        self.actions_table.setColumnCount(4)
+        self.actions_table.setHorizontalHeaderLabels(["Aksi", "By", "Selector", "Data/Nilai"])
         self.actions_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.actions_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.actions_table.itemChanged.connect(self.on_action_item_changed) # Terhubung ke penyimpanan real-time
         right_layout.addWidget(self.actions_table)
         
         header = self.actions_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-
+        
+        # Setup delegates untuk ComboBox di dalam tabel
+        action_items = [
+            "Buka URL", "Klik Elemen", "Isi Teks", "Tunggu Elemen Muncul", 
+            "Tunggu Elemen Hilang", "Tunggu URL Mengandung", "Verifikasi Teks Elemen", 
+            "Verifikasi Elemen TIDAK Muncul", "Centang Checkbox (Ensure Checked)", 
+            "Hapus Centang Checkbox (Ensure Unchecked)", "Verifikasi Checkbox Tercentang", 
+            "Verifikasi Checkbox Tidak Tercentang"
+        ]
+        by_items = ["", "ID", "XPath", "Name", "Class Name", "CSS Selector", "Link Text"]
+        self.action_delegate = ComboBoxDelegate(action_items, self)
+        self.by_delegate = ComboBoxDelegate(by_items, self)
+        self.actions_table.setItemDelegateForColumn(0, self.action_delegate)
+        self.actions_table.setItemDelegateForColumn(1, self.by_delegate)
+        
+        # Layout Tombol Aksi (Tanpa tombol Edit)
         action_button_layout = QHBoxLayout()
         add_action_btn = QPushButton("Tambah Aksi"); add_action_btn.clicked.connect(self.add_action)
-        edit_action_btn = QPushButton("Edit Aksi"); edit_action_btn.clicked.connect(self.edit_action)
         remove_action_btn = QPushButton("Hapus Aksi"); remove_action_btn.clicked.connect(self.remove_action)
-        action_button_layout.addWidget(add_action_btn); action_button_layout.addWidget(edit_action_btn); action_button_layout.addWidget(remove_action_btn)
+        action_button_layout.addWidget(add_action_btn); action_button_layout.addWidget(remove_action_btn)
+        
         move_buttons_layout = QVBoxLayout()
         move_up_btn = QPushButton("↑ Atas"); move_up_btn.clicked.connect(lambda: self.move_action(-1))
         move_down_btn = QPushButton("↓ Bawah"); move_down_btn.clicked.connect(lambda: self.move_action(1))
         move_buttons_layout.addWidget(move_up_btn); move_buttons_layout.addWidget(move_down_btn)
-        action_button_layout.addLayout(move_buttons_layout); right_layout.addLayout(action_button_layout)
-        self.headless_checkbox = QCheckBox("Jalankan Headless"); self.headless_checkbox.setChecked(self.settings.value("flow/headless", False, type=bool))
+        
+        action_button_layout.addStretch()
+        action_button_layout.addLayout(move_buttons_layout)
+        right_layout.addLayout(action_button_layout)
+        
+        self.headless_checkbox = QCheckBox("Jalankan Headless")
+        self.headless_checkbox.setChecked(self.settings.value("flow/headless", False, type=bool))
         right_layout.addWidget(self.headless_checkbox, 0, Qt.AlignmentFlag.AlignRight)
+        
         layout.addWidget(left_panel, 1); layout.addWidget(right_panel, 3)
-        self.tabs.addTab(flow_widget, "Management Flow (Codeless)"); self.load_flows()
+        self.tabs.addTab(flow_widget, "Management Flow (Codeless)")
+        self.column_to_key_map = {0: "action", 1: "by", 2: "selector", 3: "value"}
+        self.load_flows()
 
+    def add_default_login_flow_data(self):
+        return {
+            'test_login': [
+                {"action": "Buka URL", "by": None, "selector": None, "value": "{URL}"},
+                {"action": "Isi Teks", "by": "ID", "selector": "email", "value": "{USERNAME}"},
+                {"action": "Isi Teks", "by": "ID", "selector": "password", "value": "{PASSWORD}"},
+                {"action": "Klik Elemen", "by": "XPath", "selector": "//label[@for='validation']", "value": ""},
+                {"action": "Klik Elemen", "by": "ID", "selector": "login", "value": ""},
+                {"action": "Tunggu URL Mengandung", "by": None, "selector": None, "value": "dashboard"}
+            ]
+        }
+    
     def load_flows(self):
-        self.flows_data = json.loads(self.settings.value("flows", "{}"))
+        try:
+            with open(FLOWS_CONFIG_FILE, 'r') as f: self.flows_data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.flows_data = self.add_default_login_flow_data()
+            self.save_flows_to_file()
+        
         self.active_flows = self.settings.value("active_flows", [], type=list)
-        if not self.flows_data: self.add_default_login_flow()
+        current_selection = self.flow_list.currentItem().text() if self.flow_list.currentItem() else None
         self.flow_list.clear()
+        
+        new_selection_item = None
         for flow_name in sorted(self.flows_data.keys()):
             item = QListWidgetItem(flow_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if flow_name in self.active_flows else Qt.CheckState.Unchecked)
             self.flow_list.addItem(item)
-        if self.flow_list.count() > 0: self.flow_list.setCurrentRow(0)
+            if flow_name == current_selection: new_selection_item = item
+        
+        if new_selection_item: self.flow_list.setCurrentItem(new_selection_item)
+        elif self.flow_list.count() > 0: self.flow_list.setCurrentRow(0)
+        else: self.on_flow_selected(None)
 
-    def add_default_login_flow(self):
-        self.flows_data['test_login'] = [
-            {"action": "Buka URL", "by": None, "selector": None, "value": "{URL}"},
-            {"action": "Isi Teks", "by": "ID", "selector": "email", "value": "{USERNAME}"},
-            {"action": "Isi Teks", "by": "ID", "selector": "password", "value": "{PASSWORD}"},
-            {"action": "Klik Elemen", "by": "ID", "selector": "login"},
-            {"action": "Tunggu URL Mengandung", "by": None, "selector": None, "value": "dashboard"}
-        ]; self.active_flows.append('test_login')
-
-    def on_flow_selected(self, current_item, _=None):
-        self.actions_table.setRowCount(0)
-        if not current_item:
-            self.actions_label.setText("<b>Langkah/Aksi untuk Alur: -</b>")
-            return
-        flow_name = current_item.text()
-        self.actions_label.setText(f"<b>Langkah/Aksi untuk Alur: {flow_name}</b>")
-        actions = self.flows_data.get(flow_name, [])
-        self.actions_table.setRowCount(len(actions))
-        for row, action_data in enumerate(actions):
-            self.actions_table.setItem(row, 0, QTableWidgetItem(str(action_data.get("action", ""))))
-            self.actions_table.setItem(row, 1, QTableWidgetItem(str(action_data.get("by", ""))))
-            self.actions_table.setItem(row, 2, QTableWidgetItem(str(action_data.get("selector", ""))))
-            self.actions_table.setItem(row, 3, QTableWidgetItem(str(action_data.get("value", ""))))
-
-    def add_flow(self):
-        name, ok = QInputDialog.getText(self, "Tambah Alur Tes", "Masukkan Nama Alur Baru:")
-        if ok and name and name.strip():
-            name = name.strip()
-            if name in self.flows_data: QMessageBox.warning(self, "Gagal", f"Alur dengan nama '{name}' sudah ada."); return
-            self.flows_data[name] = []; self.load_flows()
-            items = self.flow_list.findItems(name, Qt.MatchFlag.MatchExactly)
-            if items: self.flow_list.setCurrentItem(items[0])
-
-    def remove_flow(self):
-        current_item = self.flow_list.currentItem();
-        if not current_item: return
-        flow_name = current_item.text(); reply = QMessageBox.question(self, "Hapus Alur", f"Anda yakin ingin menghapus alur '{flow_name}'?")
-        if reply == QMessageBox.StandardButton.Yes: del self.flows_data[flow_name]; self.load_flows()
-
-    def add_action(self):
-        current_flow_item = self.flow_list.currentItem()
-        if not current_flow_item: QMessageBox.warning(self, "Peringatan", "Pilih alur tes terlebih dahulu."); return
-        dialog = ActionDialog(parent=self)
-        if dialog.exec():
-            flow_name = current_flow_item.text(); self.flows_data[flow_name].append(dialog.get_data())
-            self.on_flow_selected(current_flow_item)
-
-    def edit_action(self):
-        current_flow_item = self.flow_list.currentItem(); current_action_row = self.actions_table.currentRow()
-        if not current_flow_item or current_action_row < 0: QMessageBox.warning(self, "Peringatan", "Pilih sebuah aksi untuk diedit."); return
-        flow_name = current_flow_item.text(); action_data = self.flows_data[flow_name][current_action_row]
-        dialog = ActionDialog(action_data, self)
-        if dialog.exec():
-            self.flows_data[flow_name][current_action_row] = dialog.get_data(); self.on_flow_selected(current_flow_item)
-
-    def remove_action(self):
-        current_flow_item = self.flow_list.currentItem(); current_action_row = self.actions_table.currentRow()
-        if not current_flow_item or current_action_row < 0: QMessageBox.warning(self, "Peringatan", "Pilih sebuah aksi untuk dihapus."); return
-        reply = QMessageBox.question(self, "Hapus Aksi", "Anda yakin ingin menghapus aksi ini?")
-        if reply == QMessageBox.StandardButton.Yes:
-            flow_name = current_flow_item.text(); del self.flows_data[flow_name][current_action_row]
-            self.on_flow_selected(current_flow_item)
-    
-    def move_action(self, direction):
-        current_flow_item = self.flow_list.currentItem(); row = self.actions_table.currentRow()
-        if not current_flow_item or row < 0: return
-        flow_name = current_flow_item.text(); actions = self.flows_data[flow_name]; new_row = row + direction
-        if 0 <= new_row < len(actions):
-            actions.insert(new_row, actions.pop(row)); self.on_flow_selected(current_flow_item)
-            self.actions_table.selectRow(new_row)
+    def save_flows_to_file(self):
+        try:
+            with open(FLOWS_CONFIG_FILE, 'w') as f: json.dump(self.flows_data, f, indent=4)
+        except Exception as e:
+            QMessageBox.critical(self, "Error Menyimpan Flow", f"Gagal menyimpan alur tes ke {FLOWS_CONFIG_FILE}:\n{e}")
 
     def save_settings(self):
         self.settings.setValue("environments", json.dumps(self.environments_data))
         active_env_item = self.environments_list.currentItem()
         self.settings.setValue("active_environment", active_env_item.text() if active_env_item else "")
         self.settings.setValue("flow/headless", self.headless_checkbox.isChecked())
-        self.settings.setValue("flows", json.dumps(self.flows_data))
         active_flows = [self.flow_list.item(i).text() for i in range(self.flow_list.count()) if self.flow_list.item(i).checkState() == Qt.CheckState.Checked]
         self.settings.setValue("active_flows", active_flows)
-
-    def accept(self): self.save_settings(); super().accept()
+        self.save_flows_to_file()
+    
+    def on_flow_selected(self, current_item, _=None):
+        self.actions_table.blockSignals(True)
+        self.actions_table.setRowCount(0)
+        if not current_item:
+            self.actions_label.setText("<b>Langkah/Aksi untuk Alur: -</b>")
+            self.actions_table.blockSignals(False)
+            return
+            
+        flow_name = current_item.text()
+        self.actions_label.setText(f"<b>Langkah/Aksi untuk Alur: {flow_name}</b>")
+        actions = self.flows_data.get(flow_name, [])
+        self.actions_table.setRowCount(len(actions))
         
-# --- Jendela Utama Aplikasi ---
+        disabled_color = QColor(40, 52, 64) # Warna untuk sel non-aktif
+        
+        for row, action_data in enumerate(actions):
+            action_text = action_data.get("action", "")
+            
+            for col, key in self.column_to_key_map.items():
+                value = action_data.get(key, "")
+                item = QTableWidgetItem(str(value if value is not None else ""))
+                self.actions_table.setItem(row, col, item)
+            
+            # Atur sel mana yang bisa diedit berdasarkan Aksi
+            selector_needed = action_text not in ["Buka URL", "Tunggu URL Mengandung"]
+            value_needed = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen"]
+            
+            for col, item_key in [(1, "by"), (2, "selector"), (3, "value")]:
+                item = self.actions_table.item(row, col)
+                should_be_editable = (item_key in ["by", "selector"] and selector_needed) or (item_key == "value" and value_needed)
+                if not should_be_editable:
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    item.setBackground(disabled_color)
+                else:
+                    item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
+                    item.setBackground(QColor("#212f3d")) # Warna default
+
+        self.actions_table.blockSignals(False)
+
+    def on_action_item_changed(self, item):
+        current_flow_item = self.flow_list.currentItem()
+        if not current_flow_item: return
+
+        row, col = item.row(), item.column()
+        flow_name = current_flow_item.text()
+        
+        if flow_name in self.flows_data and len(self.flows_data[flow_name]) > row:
+            key_to_update = self.column_to_key_map.get(col)
+            if key_to_update:
+                new_value = item.text()
+                # Jika 'By' dikosongkan, jadikan None di data
+                if key_to_update == 'by' and not new_value:
+                    self.flows_data[flow_name][row][key_to_update] = None
+                else:
+                    self.flows_data[flow_name][row][key_to_update] = new_value
+            
+            # Jika kolom Aksi yang berubah, refresh seluruh baris untuk update flag editable
+            if col == 0:
+                self.on_flow_selected(current_flow_item)
+                self.actions_table.selectRow(row)
+
+
+    def add_flow(self):
+        name, ok = QInputDialog.getText(self, "Tambah Alur Tes", "Masukkan Nama Alur Baru:")
+        if ok and name and name.strip():
+            name = name.strip()
+            if name in self.flows_data:
+                QMessageBox.warning(self, "Gagal", f"Alur dengan nama '{name}' sudah ada."); return
+            self.flows_data[name] = []
+            self.load_flows()
+            items = self.flow_list.findItems(name, Qt.MatchFlag.MatchExactly)
+            if items: self.flow_list.setCurrentItem(items[0])
+
+    def remove_flow(self):
+        current_item = self.flow_list.currentItem()
+        if not current_item: return
+        flow_name = current_item.text()
+        reply = QMessageBox.question(self, "Hapus Alur", f"Anda yakin ingin menghapus alur '{flow_name}'?")
+        if reply == QMessageBox.StandardButton.Yes:
+            del self.flows_data[flow_name]
+            self.load_flows()
+
+    def add_action(self):
+        current_flow_item = self.flow_list.currentItem()
+        if not current_flow_item:
+            QMessageBox.warning(self, "Peringatan", "Pilih alur tes terlebih dahulu."); return
+        dialog = ActionDialog(parent=self)
+        if dialog.exec():
+            flow_name = current_flow_item.text()
+            self.flows_data[flow_name].append(dialog.get_data())
+            self.on_flow_selected(current_flow_item)
+
+    def remove_action(self):
+        current_flow_item = self.flow_list.currentItem()
+        selected_rows = sorted([index.row() for index in self.actions_table.selectionModel().selectedRows()], reverse=True)
+        if not current_flow_item or not selected_rows:
+            QMessageBox.warning(self, "Peringatan", "Pilih satu atau lebih aksi untuk dihapus."); return
+        
+        reply = QMessageBox.question(self, "Hapus Aksi", f"Anda yakin ingin menghapus {len(selected_rows)} aksi yang dipilih?")
+        if reply == QMessageBox.StandardButton.Yes:
+            flow_name = current_flow_item.text()
+            for row in selected_rows:
+                del self.flows_data[flow_name][row]
+            self.on_flow_selected(current_flow_item)
+    
+    def move_action(self, direction):
+        current_flow_item = self.flow_list.currentItem()
+        row = self.actions_table.currentRow()
+        if not current_flow_item or row < 0: return
+        
+        flow_name = current_flow_item.text()
+        actions = self.flows_data[flow_name]
+        new_row = row + direction
+        
+        if 0 <= new_row < len(actions):
+            actions.insert(new_row, actions.pop(row))
+            self.on_flow_selected(current_flow_item)
+            self.actions_table.selectRow(new_row)
+    
+    def accept(self):
+        self.save_settings()
+        super().accept()
+
+# --- Jendela Utama Aplikasi --- (Tidak ada perubahan di sini)
 class TestRunnerApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -464,11 +608,21 @@ class TestRunnerApp(QMainWindow):
     def start_test(self):
         self.run_button.setEnabled(False); self.log_area.clear(); self.summary_area.clear(); self.log("Mempersiapkan pengujian...")
         selected_env = self.env_combo.currentText(); selected_user = self.cred_combo.currentText()
+        if not selected_env or not selected_user or "Tidak ada" in selected_env or "Tidak ada" in selected_user:
+            QMessageBox.critical(self, "Error", "Environment atau Kredensial tidak valid. Mohon periksa di Settings.")
+            self.run_button.setEnabled(True); return
         env_details = self.environments_data.get(selected_env, {}); url = env_details.get("url", "")
         credentials = env_details.get("credentials", [])
         active_cred_details = next((c for c in credentials if c.get("username") == selected_user), {})
         password = active_cred_details.get("password", "")
-        all_flows = json.loads(self.settings.value("flows", "{}")); active_flow_names = self.settings.value("active_flows", [], type=list)
+        
+        try:
+            with open(FLOWS_CONFIG_FILE, 'r') as f: all_flows = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+             QMessageBox.critical(self, "Error", f"File konfigurasi alur tes '{FLOWS_CONFIG_FILE}' tidak ditemukan atau rusak.")
+             self.run_button.setEnabled(True); return
+
+        active_flow_names = self.settings.value("active_flows", [], type=list)
         test_flows_to_run = {name: all_flows[name] for name in active_flow_names if name in all_flows}
         if not test_flows_to_run:
             QMessageBox.warning(self, "Tidak Ada Tes", "Tidak ada alur tes yang dipilih untuk dijalankan. Silakan aktifkan di Settings.")
@@ -490,7 +644,7 @@ class TestRunnerApp(QMainWindow):
         else:
             self.log_area.setTextColor(QColor("#e74c3c"));self.summary_area.setStyleSheet("color: #e74c3c;");
             if screenshot_path:summary_text+=f"Screenshot Error: {os.path.abspath(screenshot_path)}\n";
-        self.log(f"\n--- HASIL: {'RANGKAIAN TES SELESAI' if success else 'GAGAL'} ---");self.log(message);self.summary_area.setText(summary_text);self.log_area.setTextColor(original_color);self.run_button.setEnabled(True);
+        self.log(f"\n--- HASIL: {'RANGKAIAN TES SELESEI' if success else 'GAGAL'} ---");self.log(message);self.summary_area.setText(summary_text);self.log_area.setTextColor(original_color);self.run_button.setEnabled(True);
     def export_results(self):
         log_content=self.log_area.toPlainText();summary_content=self.summary_area.toPlainText();
         if not log_content and not summary_content: QMessageBox.warning(self,"Export Gagal","Tidak ada hasil tes untuk diexport.");return;
@@ -501,6 +655,7 @@ class TestRunnerApp(QMainWindow):
                     f.write("="*20+" RINGKASAN TES "+"="*20+"\n");f.write(summary_content);f.write("\n\n"+"="*20+" LOG LENGKAP "+"="*20+"\n");f.write(log_content);
                 QMessageBox.information(self,"Sukses",f"Hasil tes berhasil diexport ke:\n{file_path}");
             except Exception as e: QMessageBox.critical(self,"Export Error",f"Terjadi kesalahan saat menyimpan file: {e}");
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

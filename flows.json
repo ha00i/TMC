@@ -1,0 +1,84 @@
+{
+    "test_login_akurat": [
+        {
+            "action": "Buka URL",
+            "by": null,
+            "selector": null,
+            "value": "{URL}"
+        },
+        {
+            "action": "Isi Teks",
+            "by": "ID",
+            "selector": "email",
+            "value": "{USERNAME}"
+        },
+        {
+            "action": "Isi Teks",
+            "by": "ID",
+            "selector": "password",
+            "value": "{PASSWORD}"
+        },
+        {
+            "action": "Klik Elemen",
+            "by": "XPath",
+            "selector": "//label[@for='validation']",
+            "value": null
+        },
+        {
+            "action": "Klik Elemen",
+            "by": "ID",
+            "selector": "login",
+            "value": null
+        },
+        {
+            "action": "Verifikasi Elemen TIDAK Muncul",
+            "by": "ID",
+            "selector": "swal2-content",
+            "value": null
+        },
+        {
+            "action": "Klik Elemen",
+            "by": "XPath",
+            "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
+            "value": null
+        },
+        {
+            "action": "Tunggu Elemen Hilang",
+            "by": "XPath",
+            "selector": "//*[contains(text(), 'Tab is loading')]",
+            "value": null
+        },
+        {
+            "action": "Tunggu Elemen Hilang",
+            "by": "XPath",
+            "selector": "//*[contains(text(), 'Processing')]",
+            "value": null
+        },
+        {
+            "action": "Tunggu Elemen Muncul",
+            "by": "XPath",
+            "selector": "//h1[contains(text(), 'Dashboard')]",
+            "value": null
+        }
+    ],
+    "test_logout": [
+        {
+            "action": "Tunggu Elemen Muncul",
+            "by": "XPath",
+            "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
+            "value": null
+        },
+        {
+            "action": "Klik Elemen",
+            "by": "ID",
+            "selector": "logout",
+            "value": null
+        },
+        {
+            "action": "Tunggu Elemen Muncul",
+            "by": "ID",
+            "selector": "email",
+            "value": null
+        }
+    ]
+}
