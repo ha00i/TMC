@@ -429,11 +429,24 @@ class SettingsDialog(QDialog):
         self.flow_list = QListWidget()
         self.flow_list.currentItemChanged.connect(self.on_flow_selected)
         left_layout.addWidget(self.flow_list)
+        
+        # --- PENAMBAHAN TOMBOL ATAS BAWAH ---
         flow_button_layout = QHBoxLayout()
-        add_flow_btn = QPushButton("Tambah Alur"); add_flow_btn.clicked.connect(self.add_flow)
-        remove_flow_btn = QPushButton("Hapus Alur"); remove_flow_btn.clicked.connect(self.remove_flow)
-        flow_button_layout.addWidget(add_flow_btn); flow_button_layout.addWidget(remove_flow_btn)
+        add_flow_btn = QPushButton("Tambah"); add_flow_btn.clicked.connect(self.add_flow)
+        remove_flow_btn = QPushButton("Hapus"); remove_flow_btn.clicked.connect(self.remove_flow)
+        flow_button_layout.addWidget(add_flow_btn)
+        flow_button_layout.addWidget(remove_flow_btn)
+        
+        flow_move_buttons_layout = QVBoxLayout()
+        move_flow_up_btn = QPushButton("↑"); move_flow_up_btn.clicked.connect(lambda: self.move_flow_item(-1))
+        move_flow_down_btn = QPushButton("↓"); move_flow_down_btn.clicked.connect(lambda: self.move_flow_item(1))
+        flow_move_buttons_layout.addWidget(move_flow_up_btn)
+        flow_move_buttons_layout.addWidget(move_flow_down_btn)
+        
+        flow_button_layout.addStretch()
+        flow_button_layout.addLayout(flow_move_buttons_layout)
         left_layout.addLayout(flow_button_layout)
+        # --- AKHIR PENAMBAHAN ---
 
         right_panel = QWidget(); right_layout = QVBoxLayout(right_panel)
         self.actions_label = QLabel("<b>Langkah/Aksi untuk Alur: -</b>")
@@ -487,6 +500,25 @@ class SettingsDialog(QDialog):
         self.column_to_key_map = {0: "action", 1: "by", 2: "selector", 3: "value"}
         self.load_flows()
 
+    # --- FUNGSI BARU UNTUK PINDAH ALUR ---
+    def move_flow_item(self, direction):
+        current_row = self.flow_list.currentRow()
+        if current_row < 0:
+            return
+        
+        new_row = current_row + direction
+        if 0 <= new_row < self.flow_list.count():
+            # Pindahkan item di QListWidget
+            current_item = self.flow_list.takeItem(current_row)
+            self.flow_list.insertItem(new_row, current_item)
+            self.flow_list.setCurrentRow(new_row)
+
+            # Pindahkan data di self.flows_data
+            keys = list(self.flows_data.keys())
+            key_to_move = keys.pop(current_row)
+            keys.insert(new_row, key_to_move)
+            self.flows_data = {key: self.flows_data[key] for key in keys}
+
     def add_default_login_flow_data(self):
         return {
             'test_login': [
@@ -508,7 +540,8 @@ class SettingsDialog(QDialog):
         self.flow_list.clear()
         
         new_selection_item = None
-        for flow_name in sorted(self.flows_data.keys()):
+        # Menggunakan urutan dari self.flows_data secara langsung
+        for flow_name in self.flows_data.keys():
             item = QListWidgetItem(flow_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if flow_name in self.active_flows else Qt.CheckState.Unchecked)
@@ -739,10 +772,18 @@ class TestRunnerApp(QMainWindow):
              self.run_button.setEnabled(True); return
 
         active_flow_names = self.settings.value("active_flows", [], type=list)
-        test_flows_to_run = {name: all_flows[name] for name in active_flow_names if name in all_flows}
+        
+        # Jalankan tes sesuai urutan di file JSON
+        if not all_flows:
+             QMessageBox.warning(self, "Tidak Ada Tes", "Tidak ada alur tes yang dikonfigurasi.")
+             self.run_button.setEnabled(True); return
+        
+        test_flows_to_run = {name: all_flows[name] for name in all_flows if name in active_flow_names}
+
         if not test_flows_to_run:
             QMessageBox.warning(self, "Tidak Ada Tes", "Tidak ada alur tes yang dipilih untuk dijalankan. Silakan aktifkan di Settings.")
             self.run_button.setEnabled(True); return
+
         flow_settings = {"headless": self.settings.value("flow/headless", False, type=bool)}
         self.thread = QThread()
         self.worker = SeleniumWorker(

@@ -49,26 +49,6 @@
             "value": null
         }
     ],
-    "03.test_logout": [
-        {
-            "action": "Tunggu Elemen Muncul",
-            "by": "XPath",
-            "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
-            "value": null
-        },
-        {
-            "action": "Klik Elemen",
-            "by": "ID",
-            "selector": "logout",
-            "value": null
-        },
-        {
-            "action": "Tunggu Elemen Muncul",
-            "by": "ID",
-            "selector": "email",
-            "value": null
-        }
-    ],
     "02.Master Barang - Input Sukses": [
         {
             "action": "Klik Elemen",
@@ -110,6 +90,26 @@
             "action": "Klik Elemen",
             "by": "ID",
             "selector": "New",
+            "value": null
+        }
+    ],
+    "03.test_logout": [
+        {
+            "action": "Tunggu Elemen Muncul",
+            "by": "XPath",
+            "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
+            "value": null
+        },
+        {
+            "action": "Klik Elemen",
+            "by": "ID",
+            "selector": "logout",
+            "value": null
+        },
+        {
+            "action": "Tunggu Elemen Muncul",
+            "by": "ID",
+            "selector": "email",
             "value": null
         }
     ]
