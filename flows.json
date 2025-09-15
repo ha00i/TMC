@@ -1,116 +1,125 @@
 {
-    "01.Test_login_akurat": [
-        {
-            "action": "Buka URL",
-            "by": null,
-            "selector": null,
-            "value": "{URL}"
-        },
-        {
-            "action": "Isi Teks",
-            "by": "ID",
-            "selector": "email",
-            "value": "{USERNAME}"
-        },
-        {
-            "action": "Isi Teks",
-            "by": "ID",
-            "selector": "password",
-            "value": "{PASSWORD}"
-        },
-        {
-            "action": "Klik Elemen",
-            "by": "XPath",
-            "selector": "//label[@for='validation']",
-            "value": null
-        },
-        {
-            "action": "Klik Elemen",
-            "by": "ID",
-            "selector": "login",
-            "value": null
-        },
-        {
-            "action": "Verifikasi Elemen TIDAK Muncul",
-            "by": "ID",
-            "selector": "swal2-content",
-            "value": null
-        },
-        {
-            "action": "Klik Elemen",
-            "by": "XPath",
-            "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
-            "value": null
-        },
-        {
-            "action": "Verifikasi Elemen TIDAK Muncul",
-            "by": "ID",
-            "selector": "swal2-content",
-            "value": null
-        }
-    ],
-    "02.Master Barang - Input Sukses": [
-        {
-            "action": "Klik Elemen",
-            "by": "XPath",
-            "selector": "//aside//p[normalize-space()='Master Data']/ancestor::a[1]",
-            "value": null
-        },
-        {
-            "action": "Tunggu Elemen Muncul",
-            "by": "XPath",
-            "selector": "//aside//p[normalize-space()='Master Data']/ancestor::li[contains(@class, 'menu-open')]",
-            "value": null
-        },
-        {
-            "action": "Klik Elemen",
-            "by": "XPath",
-            "selector": "//aside//p[normalize-space()='Barang']/ancestor::a[1]",
-            "value": null
-        },
-        {
-            "action": "Tunggu Elemen Muncul",
-            "by": "XPath",
-            "selector": "//aside//p[normalize-space()='Barang']/ancestor::li[contains(@class, 'menu-open')]",
-            "value": null
-        },
-        {
-            "action": "Klik Elemen",
-            "by": "XPath",
-            "selector": "//aside//p[normalize-space()='Kelompok Barang']/ancestor::a[1]",
-            "value": null
-        },
-        {
-            "action": "Tunggu Elemen Muncul",
-            "by": "ID",
-            "selector": "New",
-            "value": null
-        },
-        {
-            "action": "Klik Elemen",
-            "by": "ID",
-            "selector": "New",
-            "value": null
-        }
-    ],
-    "03.test_logout": [
-        {
-            "action": "Tunggu Elemen Muncul",
-            "by": "XPath",
-            "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
-            "value": null
-        },
-        {
-            "action": "Klik Elemen",
-            "by": "ID",
-            "selector": "logout",
-            "value": null
-        },
-        {
-            "action": "Tunggu Elemen Muncul",
-            "by": "ID",
-            "selector": "email",
-            "value": null
-        }
-    ]
+    "01.Test_login_akurat": {
+        "actions": [
+            {
+                "action": "Buka URL",
+                "by": "",
+                "selector": "",
+                "value": "{URL}"
+            },
+            {
+                "action": "Isi Teks",
+                "by": "ID",
+                "selector": "email",
+                "value": "{USERNAME}"
+            },
+            {
+                "action": "Isi Teks",
+                "by": "ID",
+                "selector": "password",
+                "value": "{PASSWORD}"
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "XPath",
+                "selector": "//label[@for='validation']",
+                "value": ""
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "ID",
+                "selector": "login",
+                "value": ""
+            },
+            {
+                "action": "Verifikasi Elemen TIDAK Muncul",
+                "by": "ID",
+                "selector": "swal2-content",
+                "value": ""
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "XPath",
+                "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
+                "value": ""
+            },
+            {
+                "action": "Verifikasi Elemen TIDAK Muncul",
+                "by": "ID",
+                "selector": "swal2-content",
+                "value": ""
+            }
+        ]
+    },
+    "02.Master Barang - Input Sukses": {
+        "actions": [
+            {
+                "action": "Klik Elemen",
+                "by": "XPath",
+                "selector": "//aside//p[normalize-space()='Master Data']/ancestor::a[1]",
+                "value": ""
+            },
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "XPath",
+                "selector": "//aside//p[normalize-space()='Master Data']/ancestor::li[contains(@class, 'menu-open')]",
+                "value": ""
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "XPath",
+                "selector": "//aside//p[normalize-space()='Barang']/ancestor::a[1]",
+                "value": ""
+            },
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "XPath",
+                "selector": "//aside//p[normalize-space()='Barang']/ancestor::li[contains(@class, 'menu-open')]",
+                "value": ""
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "XPath",
+                "selector": "//aside//p[normalize-space()='Kelompok Barang']/ancestor::a[1]",
+                "value": ""
+            },
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "ID",
+                "selector": "New",
+                "value": ""
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "ID",
+                "selector": "New",
+                "value": ""
+            }
+        ]
+    },
+    "03.test_logout": {
+        "actions": [
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "XPath",
+                "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
+                "value": ""
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "ID",
+                "selector": "logout",
+                "value": ""
+            },
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "ID",
+                "selector": "email",
+                "value": ""
+            }
+        ]
+    },
+    "test": {
+        "actions": []
+    }
 }
