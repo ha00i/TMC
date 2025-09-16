@@ -36,7 +36,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STYLE_DIR = os.path.join(BASE_DIR, "styles")
 
 
-# --- Kelas Worker Selenium (DIUPDATE untuk Screenshot Berurutan) ---
+# --- Kelas Worker Selenium ---
 class SeleniumWorker(QObject):
     finished = pyqtSignal(tuple)
     progress = pyqtSignal(str)
@@ -145,7 +145,7 @@ class SeleniumWorker(QObject):
             self.driver.maximize_window()
 
             for flow_name, flow_data in self.test_flows_data.items():
-                current_flow_name = flow_name # Simpan nama flow saat ini
+                current_flow_name = flow_name
                 if self._is_stopped: raise InterruptedError("Pengujian dihentikan oleh pengguna.")
                 self.progress.emit(f"\n--- Menjalankan Alur: {flow_name} ---")
                 
@@ -167,14 +167,12 @@ class SeleniumWorker(QObject):
             self.progress.emit(error_message)
             self.finished.emit((False, error_message, None))
         except Exception as e:
-            error_message = f"Error pada rangkaian tes '{current_flow_name}': {type(e).__name__}: {str(e)}" # <<--- PERUBAHAN DI SINI ---
+            error_message = f"Error pada rangkaian tes '{current_flow_name}': {type(e).__name__}: {str(e)}"
             self.progress.emit(error_message)
 
-            # <<--- PERUBAHAN DI SINI --- (Logika Screenshot Diperbaiki)
             screenshot_path = None
             if self.driver:
                 try:
-                    # Membuat nama file yang aman dari nama alur
                     safe_flow_name = re.sub(r'[\\/*?:"<>|]', "", current_flow_name).replace(" ", "_")
                     timestamp = time.strftime("%Y%m%d-%H%M%S")
                     screenshot_path = f"error_{timestamp}_{safe_flow_name}.png"
@@ -182,21 +180,19 @@ class SeleniumWorker(QObject):
                     self.progress.emit(f"Screenshot error disimpan di {screenshot_path}")
                 except Exception as ss_e:
                     self.progress.emit(f"Gagal menyimpan screenshot: {ss_e}")
-            # <<--- AKHIR PERUBAHAN ---
             
             self.finished.emit((False, error_message, screenshot_path))
         finally:
             if self.driver:
                 self.progress.emit("Menutup browser...");
                 try:
-                    # Beri jeda jika tidak headless agar user bisa melihat hasil akhir
                     if not self.flow_settings.get("headless") and not self._is_stopped: time.sleep(3)
                     self.driver.quit()
                 except Exception as quit_e:
                     self.progress.emit(f"Error saat menutup browser: {quit_e}")
 
 
-# --- Dialog untuk Menambah Aksi (TIDAK ADA PERUBAHAN) ---
+# --- Dialog untuk Menambah Aksi ---
 class ActionDialog(QDialog):
     def __init__(self, action_data=None, parent=None):
         super().__init__(parent)
@@ -239,7 +235,7 @@ class ActionDialog(QDialog):
         }
 
 
-# --- Delegate untuk ComboBox di dalam Tabel (TIDAK ADA PERUBAHAN) ---
+# --- Delegate untuk ComboBox di dalam Tabel ---
 class ComboBoxDelegate(QStyledItemDelegate):
     def __init__(self, items, parent=None):
         super().__init__(parent)
@@ -261,7 +257,7 @@ class ComboBoxDelegate(QStyledItemDelegate):
         editor.setGeometry(option.rect)
 
 
-# --- Delegate Kredensial (TIDAK ADA PERUBAHAN) ---
+# --- Delegate Kredensial ---
 class CredentialDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -299,7 +295,7 @@ class CredentialDelegate(QStyledItemDelegate):
         self.parent_window.environments_data[env_name]['active_credential'] = new_username
         self.parent_window.save_active_credential_change()
 
-# --- Dialog Pengaturan (DIUPDATE DENGAN TOMBOL YANG HILANG DIKEMBALIKAN) ---
+# --- Dialog Pengaturan ---
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -317,7 +313,6 @@ class SettingsDialog(QDialog):
         self.environments_list.currentItemChanged.connect(self.on_environment_selected)
         self.credentials_list.currentItemChanged.connect(self.on_credential_selected_for_saving)
 
-    # --- Fungsi Environment & Kredensial (TIDAK ADA PERUBAHAN) ---
     def _refresh_environment_list_ui(self):
         current_selection_text = None
         if self.environments_list.currentItem():
@@ -485,13 +480,10 @@ class SettingsDialog(QDialog):
         env_name = current_env_item.text()
         self.environments_data[env_name]["active_credential"] = item.text().split(' (')[0]
 
-    # --- FUNGSI MANAGEMENT FLOW ---
-
     def create_flow_management_tab(self):
         flow_widget = QWidget(); main_tab_layout = QVBoxLayout(flow_widget)
         top_panels_layout = QHBoxLayout(); main_tab_layout.addLayout(top_panels_layout, 1)
 
-        # Panel Kiri
         flows_group_box = QGroupBox("Alur Tes & Preset Role")
         flows_layout = QVBoxLayout(flows_group_box)
         
@@ -500,7 +492,6 @@ class SettingsDialog(QDialog):
         self.flow_list.currentItemChanged.connect(self.on_flow_selected)
         flows_layout.addWidget(self.flow_list)
 
-        # <<--- PERUBAHAN DI SINI ---: Mengembalikan tombol Tambah/Hapus/Panah
         flow_button_layout = QHBoxLayout()
         add_flow_btn = QPushButton("Tambah"); add_flow_btn.clicked.connect(self.add_flow)
         remove_flow_btn = QPushButton("Hapus"); remove_flow_btn.clicked.connect(self.remove_flow)
@@ -510,7 +501,6 @@ class SettingsDialog(QDialog):
         flow_button_layout.addStretch()
         flow_button_layout.addWidget(move_flow_up_btn); flow_button_layout.addWidget(move_flow_down_btn)
         flows_layout.addLayout(flow_button_layout)
-        # <<--- AKHIR PERUBAHAN ---
 
         preset_form_layout = QFormLayout()
         preset_form_layout.setContentsMargins(0, 10, 0, 5)
@@ -526,7 +516,6 @@ class SettingsDialog(QDialog):
 
         top_panels_layout.addWidget(flows_group_box, 1)
 
-        # Panel Kanan
         self.actions_group_box = QGroupBox("Langkah/Aksi untuk Alur: -")
         actions_layout = QVBoxLayout(self.actions_group_box)
         
@@ -630,6 +619,7 @@ class SettingsDialog(QDialog):
         needs_resave = False
         if self.flows_data:
             for name, data in self.flows_data.items():
+                # This migration logic is correct, but it causes the bug in start_test
                 if isinstance(data, dict) and 'role' in data:
                     self.flows_data[name] = {'actions': data.get('actions', [])}
                     needs_resave = True
@@ -746,18 +736,46 @@ class SettingsDialog(QDialog):
         for row in selected_rows:
             self.actions_table.removeRow(row)
 
+    ### PERBAIKAN 1: FUNGSI ATAS/BAWAH (MOVE ACTION) DIPERBAIKI ###
+    # Logika lama salah dalam menghitung indeks setelah menyisipkan baris,
+    # menyebabkan perilaku yang tidak terduga.
+    # Logika baru secara atomik mengambil semua item dari satu baris, menghapus baris itu,
+    # menyisipkan baris kosong di tempat baru, dan menempatkan kembali item-itemnya.
     def move_action(self, direction):
         row = self.actions_table.currentRow()
-        if row < 0: return
-        new_row = row + direction
-        if 0 <= new_row < self.actions_table.rowCount():
-            self.actions_table.insertRow(new_row)
-            for col in range(self.actions_table.columnCount()):
-                self.actions_table.setItem(new_row, col, self.actions_table.takeItem(row + (1 if direction > 0 else 0), col))
-            self.actions_table.removeRow(row + (1 if direction > 0 else 0))
-            self.actions_table.selectRow(new_row)       
+        if row < 0:
+            return
 
-# --- Jendela Utama Aplikasi (DIPERBARUI) ---
+        new_row = row + direction
+        if not (0 <= new_row < self.actions_table.rowCount()):
+            return
+
+        # Blokir sinyal untuk mencegah pembaruan UI yang tidak perlu selama proses
+        self.actions_table.blockSignals(True)
+
+        # Ambil semua item dari baris yang akan dipindahkan
+        taken_items = []
+        for col in range(self.actions_table.columnCount()):
+            taken_items.append(self.actions_table.takeItem(row, col))
+
+        # Hapus baris lama yang sekarang kosong
+        self.actions_table.removeRow(row)
+
+        # Sisipkan baris baru di posisi target
+        self.actions_table.insertRow(new_row)
+
+        # Tempatkan kembali item yang diambil ke baris baru
+        for col, item in enumerate(taken_items):
+            self.actions_table.setItem(new_row, col, item)
+
+        # Aktifkan kembali sinyal
+        self.actions_table.blockSignals(False)
+        
+        # Pilih baris yang baru dipindahkan agar tetap fokus
+        self.actions_table.selectRow(new_row)
+
+
+# --- Jendela Utama Aplikasi ---
 class TestRunnerApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -818,7 +836,7 @@ class TestRunnerApp(QMainWindow):
         header_widget = QWidget(); header_widget.setObjectName("HeaderWidget")
         header_layout = QHBoxLayout(header_widget); header_layout.setContentsMargins(10, 5, 10, 5)
         title_label = QLabel("Welcome to Test Automatic Challenge"); title_label.setObjectName("HeaderLabel")
-        github_link = "<a href='https://github.com/ha00i/TMC' style='color: #0066cc; text-decoration: underline;'>👉 Github</a>"
+        github_link = "<a href='https://github.com/ha00i/TMC' style='color: #0066cc; text-decoration: underline;'>👉 Updates?</a>"
         feedback_link = "<a href='mailto:cobaingatemailnya@gmail.com' style='color: #0066cc; text-decoration: underline;'>✉ Send Feedback</a>"
         rec_label = QLabel(github_link); rec_label.setOpenExternalLinks(True)
         send_label = QLabel(feedback_link); send_label.setOpenExternalLinks(True)
@@ -843,7 +861,7 @@ class TestRunnerApp(QMainWindow):
         self.export_log_button.clicked.connect(self.export_log)
 
     def _create_drives_table(self):
-        self.drives_group_box = QGroupBox("Drives Available"); layout = QVBoxLayout(self.drives_group_box); layout.setContentsMargins(5, 5, 5, 5)
+        self.drives_group_box = QGroupBox("List Data"); layout = QVBoxLayout(self.drives_group_box); layout.setContentsMargins(5, 5, 5, 5)
         self.drives_table = QTableWidget(); self.drives_table.setColumnCount(3); self.drives_table.setHorizontalHeaderLabels(["Env", "Site URL", "Active User (Role)"]); self.drives_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows); self.drives_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.drives_table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
         self.credential_delegate = CredentialDelegate(self)
@@ -859,7 +877,7 @@ class TestRunnerApp(QMainWindow):
     def _create_progress_bar(self):
         self.legend_and_progress_widget = QWidget(); layout = QHBoxLayout(self.legend_and_progress_widget); layout.setContentsMargins(0, 5, 0, 5)
         legend_widget = QWidget(); legend_widget.setObjectName("LegendWidget"); legend_layout = QHBoxLayout(legend_widget); legend_layout.setContentsMargins(5, 5, 5, 5)
-        legend_layout.addWidget(QLabel("⬜ Free Space")); legend_layout.addWidget(QLabel("🟩 Files")); legend_layout.addWidget(QLabel("🟦 Directories")); legend_layout.addStretch()
+        legend_layout.addWidget(QLabel("⬜")); legend_layout.addWidget(QLabel("🟩")); legend_layout.addWidget(QLabel("🟦"));legend_layout.addWidget(QLabel("Ngising Is the BEST!!")); legend_layout.addStretch()
         self.progress_bar = QProgressBar(); self.progress_bar.setTextVisible(True); self.progress_bar.setFormat("%p%")
         layout.addWidget(legend_widget, 1); layout.addWidget(self.progress_bar, 2)
 
@@ -957,39 +975,28 @@ class TestRunnerApp(QMainWindow):
         if not active_flow_names:
             QMessageBox.warning(self, "No Tests", "Tidak ada alur tes yang dicentang untuk dijalankan. Silakan aktifkan di Pengaturan."); self.set_controls_enabled(True); return
 
-        # <<--- PERUBAHAN DI SINI --- (Logika Pemilihan User Berdasarkan Role Flow)
-        target_cred = None
+        ### PERBAIKAN 2: LOGIKA PEMILIHAN USER RUSAK DAN DISEMPURNAKAN ###
+        # Logika lama mencoba mencari 'role' di dalam data flow, tetapi data 'role' itu
+        # sudah dihapus oleh fungsi migrasi di SettingsDialog. Ini adalah bug.
+        # Logika baru disederhanakan untuk selalu menggunakan kredensial yang sedang
+        # aktif di tabel utama, membuatnya lebih andal dan dapat diprediksi.
+        
+        self.log(f"Menggunakan kredensial yang aktif untuk environment '{selected_env}'...")
         credentials = env_details.get("credentials", [])
+        active_user_name = env_details.get("active_credential", "")
         
-        # 1. Tentukan role yang dibutuhkan dari alur pertama yang aktif
-        first_flow_name = active_flow_names[0]
-        required_role = all_flows[first_flow_name].get('role')
+        target_cred = next((c for c in credentials if c.get("username") == active_user_name), None)
         
-        # 2. Jika alur memiliki role spesifik, cari user yang cocok
-        if required_role:
-            self.log(f"Alur pertama '{first_flow_name}' membutuhkan role: '{required_role}'. Mencari user yang cocok...")
-            target_cred = next((c for c in credentials if c.get('role') == required_role), None)
-            if not target_cred:
-                QMessageBox.critical(self, "User Role Mismatch", 
-                                     f"Alur tes memerlukan user dengan role '{required_role}', "
-                                     f"namun tidak ada user dengan role tersebut di environment '{selected_env}'.\n\n"
-                                     "Silakan periksa Pengaturan.")
-                self.set_controls_enabled(True)
-                return
-        # 3. Jika tidak ada role spesifik, gunakan user yang sedang aktif
-        else:
-            self.log(f"Alur pertama '{first_flow_name}' tidak membutuhkan role spesifik. Menggunakan user aktif...")
-            active_user_name = env_details.get("active_credential", "")
-            target_cred = next((c for c in credentials if c.get("username") == active_user_name), None)
-            if not target_cred:
-                QMessageBox.critical(self, "Error", f"Kredensial aktif '{active_user_name}' tidak ditemukan. Silakan periksa Pengaturan."); self.set_controls_enabled(True); return
+        if not target_cred:
+            QMessageBox.critical(self, "Error Kredensial", f"Kredensial aktif '{active_user_name}' tidak ditemukan di environment '{selected_env}'.\n\nSilakan periksa Pengaturan.")
+            self.set_controls_enabled(True)
+            return
 
         username = target_cred['username']
         password = target_cred['password']
         role = target_cred.get('role', '') # Role yang sebenarnya digunakan untuk tes
         self.log(f"Tes akan dijalankan menggunakan user: {username} (Role: {role or 'N/A'})")
-        # <<--- AKHIR PERUBAHAN ---
-
+        
         test_flows_to_run = {name: all_flows[name] for name in all_flows if name in active_flow_names}
             
         self.total_test_steps = sum(len(data.get('actions', [])) for data in test_flows_to_run.values())
@@ -1015,7 +1022,9 @@ class TestRunnerApp(QMainWindow):
 
     def log(self, message):
         self.log_area.append(message)
-        if message.strip().startswith("  - Aksi:"): # <<--- PERUBAHAN DI SINI (spasi)
+        # ### PERBAIKAN 3: KONDISI PEMBARUAN PROGRESS BAR DIBUAT LEBIH ROBUST ###
+        # Menggunakan strip() lalu startswith() agar tidak sensitif terhadap jumlah spasi
+        if message.strip().startswith("- Aksi:"):
             self.current_test_step += 1
             if self.total_test_steps > 0: self.progress_bar.setValue(self.current_test_step)
 
