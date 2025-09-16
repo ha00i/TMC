@@ -85,14 +85,26 @@
             },
             {
                 "action": "Tunggu Elemen Muncul",
-                "by": "ID",
-                "selector": "New",
+                "by": "XPath",
+                "selector": "//aside//p[normalize-space()='Kelompok Barang']/ancestor::a[1]",
                 "value": ""
             },
             {
-                "action": "Klik Elemen",
+                "action": "Tidur",
+                "by": "",
+                "selector": "",
+                "value": "8"
+            },
+            {
+                "action": "Buka Panel Collapse",
                 "by": "ID",
-                "selector": "New",
+                "selector": "collapseNew",
+                "value": ""
+            },
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "XPath",
+                "selector": "//div[@id='collapseNew' and contains(@class, 'show')]",
                 "value": ""
             }
         ]

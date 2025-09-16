@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QProgressBar, QSpacerItem, QSizePolicy, QStyle,
                              QMenuBar)
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, QSettings, Qt, QDir
-from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPalette, QActionGroup
+from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPalette, QActionGroup, QPixmap
 
 # Selenium Imports
 from selenium import webdriver
@@ -54,14 +54,16 @@ class SeleniumWorker(QObject):
         self._is_stopped = False
 
     def stop(self):
+        """Metode ini dipanggil dari thread utama untuk menandai bahwa worker harus berhenti."""
         self._is_stopped = True
-        self.progress.emit(">>> Perintah berhenti diterima...")
+        self.progress.emit(">>> Perintah berhenti diterima oleh worker...")
 
     def _replace_placeholders(self, value):
         if not isinstance(value, str): return value
         return value.replace("{URL}", self.url).replace("{USERNAME}", self.username).replace("{PASSWORD}", self.password).replace("{ROLE}", self.role)
 
     def _execute_action(self, action_data):
+        # Pemeriksaan flag stop di awal setiap aksi.
         if self._is_stopped: return
         action = action_data.get("action")
         by_string = action_data.get("by")
@@ -71,7 +73,7 @@ class SeleniumWorker(QObject):
 
         self.progress.emit(f"  - Aksi: {action}, By: {by_string or 'N/A'}, Selector: {selector or 'N/A'}, Value: {value or 'N/A'}")
 
-        if action not in ["Buka URL", "Tunggu URL Mengandung"] and (not by or not selector):
+        if action not in ["Buka URL", "Tunggu URL Mengandung", "Tidur", "Gulir ke Elemen", "Klik Elemen via JS"] and (not by or not selector):
             raise ValueError(f"Aksi '{action}' memerlukan 'By' dan 'Selector' yang valid.")
 
         wait = WebDriverWait(self.driver, 10)
@@ -122,6 +124,17 @@ class SeleniumWorker(QObject):
                 raise AssertionError(f"Verifikasi Gagal! Elemen '{selector}' seharusnya TIDAK muncul, tapi ditemukan.")
             except TimeoutException:
                 self.progress.emit("    -> Verifikasi Berhasil: Elemen tidak muncul seperti yang diharapkan.")
+        elif action == "Tidur":
+            duration = float(value) # Mengubah value dari string (misal "3") menjadi angka
+            self.progress.emit(f"    -> Jeda selama {duration} detik...") # Memberi log
+            time.sleep(duration) # Perintah untuk berhenti sejenak
+        elif action == "Gulir ke Elemen":
+            element = wait.until(EC.presence_of_element_located((by, selector)))
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", element)
+            self.progress.emit(f"    -> Elemen '{selector}' digulir ke tengah layar.")
+        elif action == "Klik Elemen via JS":
+            element = wait.until(EC.presence_of_element_located((by, selector)))
+            self.driver.execute_script("arguments[0].click();", element)
         else:
             raise NotImplementedError(f"Aksi '{action}' tidak dikenali.")
 
@@ -132,6 +145,7 @@ class SeleniumWorker(QObject):
         
         current_flow_name = "unknown_flow"
         try:
+            # Pemeriksaan flag stop sebelum memulai proses berat (setup browser).
             if self._is_stopped: raise InterruptedError("Pengujian dihentikan oleh pengguna sebelum dimulai.")
             self.progress.emit(f"Menyiapkan driver untuk {self.browser}...")
             if self.browser == "chrome":
@@ -146,15 +160,18 @@ class SeleniumWorker(QObject):
 
             for flow_name, flow_data in self.test_flows_data.items():
                 current_flow_name = flow_name
+                # Pemeriksaan flag stop di antara setiap alur tes.
                 if self._is_stopped: raise InterruptedError("Pengujian dihentikan oleh pengguna.")
                 self.progress.emit(f"\n--- Menjalankan Alur: {flow_name} ---")
                 
                 actions = flow_data.get('actions', [])
                 for action_data in actions:
+                    # Pemeriksaan flag stop di antara setiap aksi dalam satu alur.
                     if self._is_stopped: raise InterruptedError("Pengujian dihentikan oleh pengguna.")
                     self._execute_action(action_data)
             self.finished.emit((True, "Semua alur tes berhasil diselesaikan.", None))
         except InterruptedError as e:
+            # Blok ini khusus menangani penghentian oleh pengguna.
             error_message = f"Pengujian dihentikan: {str(e)}"
             self.progress.emit(error_message)
             self.finished.emit((False, error_message, None))
@@ -186,6 +203,7 @@ class SeleniumWorker(QObject):
             if self.driver:
                 self.progress.emit("Menutup browser...");
                 try:
+                    # Logika ini memastikan ada jeda singkat HANYA jika tes selesai normal (tidak di-stop)
                     if not self.flow_settings.get("headless") and not self._is_stopped: time.sleep(3)
                     self.driver.quit()
                 except Exception as quit_e:
@@ -200,10 +218,10 @@ class ActionDialog(QDialog):
         self.action_combo = QComboBox()
         self.action_combo.addItems([
             "Buka URL", "Klik Elemen", "Isi Teks",
-            "Tunggu Elemen Muncul", "Tunggu Elemen Hilang", "Tunggu URL Mengandung",
+            "Tunggu Elemen Muncul", "Tidur", "Tunggu Elemen Hilang", "Tunggu URL Mengandung",
             "Verifikasi Teks Elemen", "Verifikasi Elemen TIDAK Muncul",
             "Centang Checkbox (Ensure Checked)", "Hapus Centang Checkbox (Ensure Unchecked)",
-            "Verifikasi Checkbox Tercentang", "Verifikasi Checkbox Tidak Tercentang"
+            "Verifikasi Checkbox Tercentang", "Verifikasi Checkbox Tidak Tercentang", "Gulir ke Elemen", "Klik Elemen via JS"
         ])
         self.by_combo = QComboBox(); self.by_combo.addItems(["ID", "XPath", "Name", "Class Name", "CSS Selector", "Link Text"])
         self.selector_input = QLineEdit(); self.value_input = QLineEdit()
@@ -523,7 +541,7 @@ class SettingsDialog(QDialog):
         self.actions_table.itemChanged.connect(self.on_action_type_changed)
         header = self.actions_table.horizontalHeader(); header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive); header.setStretchLastSection(True)
         self.actions_table.setColumnWidth(0, 180); self.actions_table.setColumnWidth(1, 100); self.actions_table.setColumnWidth(2, 250)
-        action_items = ["Buka URL", "Klik Elemen", "Isi Teks", "Tunggu Elemen Muncul", "Tunggu Elemen Hilang", "Tunggu URL Mengandung", "Verifikasi Teks Elemen", "Verifikasi Elemen TIDAK Muncul", "Centang Checkbox (Ensure Checked)", "Hapus Centang Checkbox (Ensure Unchecked)", "Verifikasi Checkbox Tercentang", "Verifikasi Checkbox Tidak Tercentang"]
+        action_items = ["Buka URL", "Klik Elemen", "Isi Teks", "Tunggu Elemen Muncul", "Tunggu Elemen Hilang", "Tunggu URL Mengandung", "Tidur", "Verifikasi Teks Elemen", "Verifikasi Elemen TIDAK Muncul", "Centang Checkbox (Ensure Checked)", "Hapus Centang Checkbox (Ensure Unchecked)", "Verifikasi Checkbox Tercentang", "Verifikasi Checkbox Tidak Tercentang", "Gulir ke Elemen", "Klik Elemen via JS"]
         by_items = ["", "ID", "XPath", "Name", "Class Name", "CSS Selector", "Link Text"]; self.action_delegate = ComboBoxDelegate(action_items, self); self.by_delegate = ComboBoxDelegate(by_items, self); self.actions_table.setItemDelegateForColumn(0, self.action_delegate); self.actions_table.setItemDelegateForColumn(1, self.by_delegate)
         actions_layout.addWidget(self.actions_table)
         
@@ -635,7 +653,7 @@ class SettingsDialog(QDialog):
 
     def _update_row_editability(self, row, action_text):
         selector_needed = action_text not in ["Buka URL", "Tunggu URL Mengandung"]
-        value_needed = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen"]
+        value_needed = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen", "Tidur", "Gulir ke Elemen", "Klik Elemen via JS"]
         disabled_color = self.palette().color(QPalette.ColorRole.Window).lighter(110)
         base_color = self.palette().color(QPalette.ColorRole.Base)
         for col, item_key in [(1, "by"), (2, "selector"), (3, "value")]:
@@ -736,11 +754,6 @@ class SettingsDialog(QDialog):
         for row in selected_rows:
             self.actions_table.removeRow(row)
 
-    ### PERBAIKAN 1: FUNGSI ATAS/BAWAH (MOVE ACTION) DIPERBAIKI ###
-    # Logika lama salah dalam menghitung indeks setelah menyisipkan baris,
-    # menyebabkan perilaku yang tidak terduga.
-    # Logika baru secara atomik mengambil semua item dari satu baris, menghapus baris itu,
-    # menyisipkan baris kosong di tempat baru, dan menempatkan kembali item-itemnya.
     def move_action(self, direction):
         row = self.actions_table.currentRow()
         if row < 0:
@@ -750,28 +763,19 @@ class SettingsDialog(QDialog):
         if not (0 <= new_row < self.actions_table.rowCount()):
             return
 
-        # Blokir sinyal untuk mencegah pembaruan UI yang tidak perlu selama proses
         self.actions_table.blockSignals(True)
 
-        # Ambil semua item dari baris yang akan dipindahkan
         taken_items = []
         for col in range(self.actions_table.columnCount()):
             taken_items.append(self.actions_table.takeItem(row, col))
 
-        # Hapus baris lama yang sekarang kosong
         self.actions_table.removeRow(row)
-
-        # Sisipkan baris baru di posisi target
         self.actions_table.insertRow(new_row)
 
-        # Tempatkan kembali item yang diambil ke baris baru
         for col, item in enumerate(taken_items):
             self.actions_table.setItem(new_row, col, item)
 
-        # Aktifkan kembali sinyal
         self.actions_table.blockSignals(False)
-        
-        # Pilih baris yang baru dipindahkan agar tetap fokus
         self.actions_table.selectRow(new_row)
 
 
@@ -835,7 +839,7 @@ class TestRunnerApp(QMainWindow):
     def _create_header(self):
         header_widget = QWidget(); header_widget.setObjectName("HeaderWidget")
         header_layout = QHBoxLayout(header_widget); header_layout.setContentsMargins(10, 5, 10, 5)
-        title_label = QLabel("Welcome to Test Automatic Challenge"); title_label.setObjectName("HeaderLabel")
+        title_label = QLabel(); title_label.setObjectName("HeaderLabel"); pixmap = QPixmap("assets/header.png"); title_label.setFixedSize(80, 50); title_label.setPixmap(pixmap); title_label.setScaledContents(True)
         github_link = "<a href='https://github.com/ha00i/TMC' style='color: #0066cc; text-decoration: underline;'>👉 Updates?</a>"
         feedback_link = "<a href='mailto:cobaingatemailnya@gmail.com' style='color: #0066cc; text-decoration: underline;'>✉ Send Feedback</a>"
         rec_label = QLabel(github_link); rec_label.setOpenExternalLinks(True)
@@ -974,12 +978,6 @@ class TestRunnerApp(QMainWindow):
         active_flow_names = self.settings.value("active_flows", [], type=list)
         if not active_flow_names:
             QMessageBox.warning(self, "No Tests", "Tidak ada alur tes yang dicentang untuk dijalankan. Silakan aktifkan di Pengaturan."); self.set_controls_enabled(True); return
-
-        ### PERBAIKAN 2: LOGIKA PEMILIHAN USER RUSAK DAN DISEMPURNAKAN ###
-        # Logika lama mencoba mencari 'role' di dalam data flow, tetapi data 'role' itu
-        # sudah dihapus oleh fungsi migrasi di SettingsDialog. Ini adalah bug.
-        # Logika baru disederhanakan untuk selalu menggunakan kredensial yang sedang
-        # aktif di tabel utama, membuatnya lebih andal dan dapat diprediksi.
         
         self.log(f"Menggunakan kredensial yang aktif untuk environment '{selected_env}'...")
         credentials = env_details.get("credentials", [])
@@ -1016,14 +1014,22 @@ class TestRunnerApp(QMainWindow):
         self.thread.start()
 
     def stop_test(self):
+        """Metode ini memanggil `stop()` pada worker yang aktif dengan umpan balik yang lebih jelas."""
+        if not self.active_workers:
+            self.log("Tidak ada tes yang sedang berjalan untuk dihentikan.")
+            return
+
+        # Langsung berikan feedback di log utama
+        self.log("\n>>> MENGIRIM PERINTAH BERHENTI...")
         for item in self.active_workers:
-            if item.get('worker'): item['worker'].stop()
-        self.log("Attempting to stop all tests gracefully..."); self.stop_button.setEnabled(False)
+            if item.get('worker'):
+                item['worker'].stop() # Ini akan memicu log 'Perintah berhenti diterima...' dari worker
+        
+        self.log(">>> Menunggu aksi yang sedang berjalan selesai sebelum berhenti sepenuhnya.")
+        self.stop_button.setEnabled(False) # Nonaktifkan tombol agar tidak diklik lagi
 
     def log(self, message):
         self.log_area.append(message)
-        # ### PERBAIKAN 3: KONDISI PEMBARUAN PROGRESS BAR DIBUAT LEBIH ROBUST ###
-        # Menggunakan strip() lalu startswith() agar tidak sensitif terhadap jumlah spasi
         if message.strip().startswith("- Aksi:"):
             self.current_test_step += 1
             if self.total_test_steps > 0: self.progress_bar.setValue(self.current_test_step)
