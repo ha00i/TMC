@@ -17,6 +17,14 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, QSettings, Qt, QDir
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPalette, QActionGroup, QPixmap
 
+# --- PERUBAHAN ---: Tambahkan import untuk manipulasi gambar (Pillow)
+# Pastikan Anda sudah menginstal Pillow: pip install Pillow
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except ImportError:
+    print("ERROR: Pillow library not found. Please install it using: pip install Pillow")
+    sys.exit(1)
+
 # Selenium Imports
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -34,11 +42,14 @@ from webdriver_manager.firefox import GeckoDriverManager
 FLOWS_CONFIG_FILE = "flows.json"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STYLE_DIR = os.path.join(BASE_DIR, "styles")
+# --- PERUBAHAN ---: Tentukan direktori untuk menyimpan hasil tes
+RESULT_DIR = os.path.join(BASE_DIR, "Result")
 
 
 # --- Kelas Worker Selenium ---
 class SeleniumWorker(QObject):
-    finished = pyqtSignal(tuple)
+    # --- PERUBAHAN ---: Sinyal diubah untuk mengirimkan data flow hasil tes
+    finished = pyqtSignal(tuple, dict)
     progress = pyqtSignal(str)
 
     BY_MAP = {
@@ -54,7 +65,6 @@ class SeleniumWorker(QObject):
         self._is_stopped = False
 
     def stop(self):
-        """Metode ini dipanggil dari thread utama untuk menandai bahwa worker harus berhenti."""
         self._is_stopped = True
         self.progress.emit(">>> Perintah berhenti diterima oleh worker...")
 
@@ -62,8 +72,39 @@ class SeleniumWorker(QObject):
         if not isinstance(value, str): return value
         return value.replace("{URL}", self.url).replace("{USERNAME}", self.username).replace("{PASSWORD}", self.password).replace("{ROLE}", self.role)
 
+    # --- PERUBAHAN ---: Tambahkan fungsi untuk watermark
+    def _add_watermark_to_screenshot(self, image_path, text, color):
+        try:
+            img = Image.open(image_path).convert("RGBA")
+            draw = ImageDraw.Draw(img)
+
+            try:
+                # Coba gunakan font Arial yang umum
+                font = ImageFont.truetype("arial.ttf", size=60)
+            except IOError:
+                # Jika tidak ada, gunakan font default
+                self.progress.emit("      (Info: Font Arial tidak ditemukan, menggunakan font default untuk watermark.)")
+                font = ImageFont.load_default(size=60)
+
+            # Hitung posisi untuk teks di pojok kanan bawah
+            text_bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
+            
+            margin = 20
+            img_width, img_height = img.size
+            x = img_width - text_width - margin
+            y = img_height - text_height - margin
+
+            # Gambar teks pada gambar
+            draw.text((x, y), text, font=font, fill=color)
+            img.save(image_path, "PNG")
+            self.progress.emit(f"      -> Watermark '{text}' ditambahkan ke screenshot.")
+        except Exception as e:
+            self.progress.emit(f"      (Peringatan: Gagal menambahkan watermark ke screenshot: {e})")
+
+
     def _execute_action(self, action_data):
-        # Pemeriksaan flag stop di awal setiap aksi.
         if self._is_stopped: return
         action = action_data.get("action")
         by_string = action_data.get("by")
@@ -136,9 +177,9 @@ class SeleniumWorker(QObject):
             except TimeoutException:
                 self.progress.emit("    -> Verifikasi Berhasil: Elemen tidak muncul seperti yang diharapkan.")
         elif action == "Tidur":
-            duration = float(value) # Mengubah value dari string (misal "3") menjadi angka
-            self.progress.emit(f"    -> Jeda selama {duration} detik...") # Memberi log
-            time.sleep(duration) # Perintah untuk berhenti sejenak
+            duration = float(value)
+            self.progress.emit(f"    -> Jeda selama {duration} detik...")
+            time.sleep(duration)
         elif action == "Gulir ke Elemen":
             element = wait.until(EC.presence_of_element_located((by, selector)))
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", element)
@@ -156,11 +197,15 @@ class SeleniumWorker(QObject):
     def run_tests(self):
         self.progress.emit("Memulai rangkaian pengujian...")
         if not all([self.url, self.username, self.password, self.test_flows_data]):
-            self.finished.emit((False, "Pengujian dibatalkan. Data/alur tes tidak lengkap.", None)); return
+            self.finished.emit((False, "Pengujian dibatalkan. Data/alur tes tidak lengkap.", None), {}); return
+        
+        # --- PERUBAHAN ---: Membuat folder Result jika belum ada
+        os.makedirs(RESULT_DIR, exist_ok=True)
         
         current_flow_name = "unknown_flow"
+        current_action_data = None # Untuk melacak aksi yang gagal
+
         try:
-            # Pemeriksaan flag stop sebelum memulai proses berat (setup browser).
             if self._is_stopped: raise InterruptedError("Pengujian dihentikan oleh pengguna sebelum dimulai.")
             self.progress.emit(f"Menyiapkan driver untuk {self.browser}...")
             if self.browser == "chrome":
@@ -175,30 +220,35 @@ class SeleniumWorker(QObject):
 
             for flow_name, flow_data in self.test_flows_data.items():
                 current_flow_name = flow_name
-                # Pemeriksaan flag stop di antara setiap alur tes.
                 if self._is_stopped: raise InterruptedError("Pengujian dihentikan oleh pengguna.")
                 self.progress.emit(f"\n--- Menjalankan Alur: {flow_name} ---")
                 
                 actions = flow_data.get('actions', [])
                 for action_data in actions:
-                    # Pemeriksaan flag stop di antara setiap aksi dalam satu alur.
+                    current_action_data = action_data
                     if self._is_stopped: raise InterruptedError("Pengujian dihentikan oleh pengguna.")
                     self._execute_action(action_data)
-            self.finished.emit((True, "Semua alur tes berhasil diselesaikan.", None))
+                    action_data['status'] = 'DONE' # --- PERUBAHAN ---: Menandai aksi berhasil
+            
+            self.finished.emit((True, "Semua alur tes berhasil diselesaikan.", None), self.test_flows_data)
+
         except InterruptedError as e:
-            # Blok ini khusus menangani penghentian oleh pengguna.
             error_message = f"Pengujian dihentikan: {str(e)}"
             self.progress.emit(error_message)
-            self.finished.emit((False, error_message, None))
+            self.finished.emit((False, error_message, None), self.test_flows_data)
         except (InvalidArgumentException, ValueError) as e:
             error_message = f"Error Konfigurasi Aksi: {str(e)}"
             self.progress.emit(error_message)
-            self.finished.emit((False, error_message, None))
+            if current_action_data: current_action_data['status'] = 'FAILED'
+            self.finished.emit((False, error_message, None), self.test_flows_data)
         except WebDriverException as e:
             error_message = f"Error WebDriver: Browser mungkin ditutup atau terjadi masalah koneksi.\nDetail: {e.msg}"
             self.progress.emit(error_message)
-            self.finished.emit((False, error_message, None))
+            if current_action_data: current_action_data['status'] = 'FAILED'
+            self.finished.emit((False, error_message, None), self.test_flows_data)
         except Exception as e:
+            if current_action_data: current_action_data['status'] = 'FAILED'
+            
             error_message = f"Error pada rangkaian tes '{current_flow_name}': {type(e).__name__}: {str(e)}"
             self.progress.emit(error_message)
 
@@ -207,18 +257,21 @@ class SeleniumWorker(QObject):
                 try:
                     safe_flow_name = re.sub(r'[\\/*?:"<>|]', "", current_flow_name).replace(" ", "_")
                     timestamp = time.strftime("%Y%m%d-%H%M%S")
-                    screenshot_path = f"error_{timestamp}_{safe_flow_name}.png"
+                    screenshot_filename = f"error_{timestamp}_{safe_flow_name}.png"
+                    # --- PERUBAHAN ---: Menyimpan screenshot di folder Result
+                    screenshot_path = os.path.join(RESULT_DIR, screenshot_filename)
                     self.driver.save_screenshot(screenshot_path)
                     self.progress.emit(f"Screenshot error disimpan di {screenshot_path}")
+                    # --- PERUBAHAN ---: Panggil fungsi watermark
+                    self._add_watermark_to_screenshot(screenshot_path, "FAILED", color=(255, 0, 0, 255))
                 except Exception as ss_e:
                     self.progress.emit(f"Gagal menyimpan screenshot: {ss_e}")
             
-            self.finished.emit((False, error_message, screenshot_path))
+            self.finished.emit((False, error_message, screenshot_path), self.test_flows_data)
         finally:
             if self.driver:
                 self.progress.emit("Menutup browser...");
                 try:
-                    # Logika ini memastikan ada jeda singkat HANYA jika tes selesai normal (tidak di-stop)
                     if not self.flow_settings.get("headless") and not self._is_stopped: time.sleep(3)
                     self.driver.quit()
                 except Exception as quit_e:
@@ -250,7 +303,7 @@ class ActionDialog(QDialog):
         self.update_ui_for_action(self.action_combo.currentText())
 
     def update_ui_for_action(self, action_text):
-        needs_selector = action_text not in ["Buka URL", "Tunggu URL Mengandung"]
+        needs_selector = action_text not in ["Buka URL", "Tunggu URL Mengandung", "Tidur", "Beralih ke Konten Utama"]
         needs_value = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen", "Tidur"]
         self.by_combo.setVisible(needs_selector)
         self.selector_input.setVisible(needs_selector)
@@ -529,15 +582,11 @@ class SettingsDialog(QDialog):
         add_flow_btn = QPushButton("Tambah"); add_flow_btn.clicked.connect(self.add_flow)
         remove_flow_btn = QPushButton("Hapus"); remove_flow_btn.clicked.connect(self.remove_flow)
         
-        # --- PERUBAHAN DIMULAI DI SINI ---
-        move_flow_up_btn = QPushButton("↑") # Ganti ikon dengan teks
-        # BARIS DI BAWAH INI DIHAPUS: move_flow_up_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowUp))
+        move_flow_up_btn = QPushButton("↑")
         move_flow_up_btn.clicked.connect(lambda: self.move_flow_item(-1))
         
-        move_flow_down_btn = QPushButton("↓") # Ganti ikon dengan teks
-        # BARIS DI BAWAH INI DIHAPUS: move_flow_down_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown))
+        move_flow_down_btn = QPushButton("↓")
         move_flow_down_btn.clicked.connect(lambda: self.move_flow_item(1))
-        # --- AKHIR DARI PERUBAHAN PERTAMA ---
         
         flow_button_layout.addWidget(add_flow_btn); flow_button_layout.addWidget(remove_flow_btn)
         flow_button_layout.addStretch()
@@ -565,21 +614,17 @@ class SettingsDialog(QDialog):
         self.actions_table.itemChanged.connect(self.on_action_type_changed)
         header = self.actions_table.horizontalHeader(); header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive); header.setStretchLastSection(True)
         self.actions_table.setColumnWidth(0, 180); self.actions_table.setColumnWidth(1, 100); self.actions_table.setColumnWidth(2, 250)
-        action_items = ["Buka URL", "Klik Elemen", "Isi Teks", "Tunggu Elemen Muncul", "Tunggu Elemen Hilang", "Tunggu URL Mengandung", "Tidur", "Verifikasi Teks Elemen", "Verifikasi Elemen TIDAK Muncul", "Centang Checkbox (Ensure Checked)", "Hapus Centang Checkbox (Ensure Unchecked)", "Verifikasi Checkbox Tercentang", "Verifikasi Checkbox Tidak Tercentang", "Gulir ke Elemen", "Klik Elemen via JS"]
+        action_items = ["Buka URL", "Klik Elemen", "Isi Teks", "Tunggu Elemen Muncul", "Tunggu Elemen Hilang", "Tunggu URL Mengandung", "Tidur", "Verifikasi Teks Elemen", "Verifikasi Elemen TIDAK Muncul", "Centang Checkbox (Ensure Checked)", "Hapus Centang Checkbox (Ensure Unchecked)", "Verifikasi Checkbox Tercentang", "Verifikasi Checkbox Tidak Tercentang", "Gulir ke Elemen", "Klik Elemen via JS", "Beralih ke Iframe", "Beralih ke Konten Utama"]
         by_items = ["", "ID", "XPath", "Name", "Class Name", "CSS Selector", "Link Text"]; self.action_delegate = ComboBoxDelegate(action_items, self); self.by_delegate = ComboBoxDelegate(by_items, self); self.actions_table.setItemDelegateForColumn(0, self.action_delegate); self.actions_table.setItemDelegateForColumn(1, self.by_delegate)
         actions_layout.addWidget(self.actions_table)
         
         action_button_layout = QHBoxLayout(); add_action_btn = QPushButton("Tambah Aksi"); add_action_btn.clicked.connect(self.add_action); remove_action_btn = QPushButton("Hapus Aksi"); remove_action_btn.clicked.connect(self.remove_action)
 
-        # --- PERUBAHAN DIMULAI DI SINI ---
         move_action_up_btn = QPushButton("Atas")
-        # BARIS DI BAWAH INI DIHAPUS: move_action_up_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowUp))
         move_action_up_btn.clicked.connect(lambda: self.move_action(-1))
         
         move_action_down_btn = QPushButton("Bawah")
-        # BARIS DI BAWAH INI DIHAPUS: move_action_down_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown))
         move_action_down_btn.clicked.connect(lambda: self.move_action(1))
-        # --- AKHIR DARI PERUBAHAN KEDUA ---
 
         action_button_layout.addWidget(add_action_btn); action_button_layout.addWidget(remove_action_btn); action_button_layout.addStretch(); action_button_layout.addWidget(move_action_up_btn); action_button_layout.addWidget(move_action_down_btn)
         actions_layout.addLayout(action_button_layout)
@@ -684,7 +729,7 @@ class SettingsDialog(QDialog):
         super().accept()
 
     def _update_row_editability(self, row, action_text):
-        selector_needed = action_text not in ["Buka URL", "Tunggu URL Mengandung", "Tidur"]
+        selector_needed = action_text not in ["Buka URL", "Tunggu URL Mengandung", "Tidur", "Beralih ke Konten Utama"]
         value_needed = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen", "Tidur"]
         disabled_color = self.palette().color(QPalette.ColorRole.Window).lighter(110)
         base_color = self.palette().color(QPalette.ColorRole.Base)
@@ -1046,19 +1091,17 @@ class TestRunnerApp(QMainWindow):
         self.thread.start()
 
     def stop_test(self):
-        """Metode ini memanggil `stop()` pada worker yang aktif dengan umpan balik yang lebih jelas."""
         if not self.active_workers:
             self.log("Tidak ada tes yang sedang berjalan untuk dihentikan.")
             return
 
-        # Langsung berikan feedback di log utama
         self.log("\n>>> MENGIRIM PERINTAH BERHENTI...")
         for item in self.active_workers:
             if item.get('worker'):
-                item['worker'].stop() # Ini akan memicu log 'Perintah berhenti diterima...' dari worker
+                item['worker'].stop()
         
         self.log(">>> Menunggu aksi yang sedang berjalan selesai sebelum berhenti sepenuhnya.")
-        self.stop_button.setEnabled(False) # Nonaktifkan tombol agar tidak diklik lagi
+        self.stop_button.setEnabled(False)
 
     def log(self, message):
         self.log_area.append(message)
@@ -1066,10 +1109,23 @@ class TestRunnerApp(QMainWindow):
             self.current_test_step += 1
             if self.total_test_steps > 0: self.progress_bar.setValue(self.current_test_step)
 
-    def on_test_finished(self, result):
+    # --- PERUBAHAN ---: Metode ini sekarang menerima data flow hasil
+    def on_test_finished(self, result, result_flows):
         success, message, screenshot_path = result
         if not success and screenshot_path:
             self.last_error_screenshot_path = screenshot_path
+        
+        # --- PERUBAHAN ---: Simpan hasil flow ke file JSON di folder Result
+        if result_flows:
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            result_filename = f"test_result_{timestamp}.json"
+            result_filepath = os.path.join(RESULT_DIR, result_filename)
+            try:
+                with open(result_filepath, 'w', encoding='utf-8') as f:
+                    json.dump(result_flows, f, indent=4)
+                self.log(f"\n--- Laporan hasil tes disimpan di: {result_filepath} ---")
+            except Exception as e:
+                self.log(f"\n(Peringatan: Gagal menyimpan laporan hasil tes: {e})")
         
         self.progress_bar.setValue(self.progress_bar.maximum())
         current_env_item = self.drives_table.currentItem()
