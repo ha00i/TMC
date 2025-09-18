@@ -73,7 +73,7 @@ class SeleniumWorker(QObject):
 
         self.progress.emit(f"  - Aksi: {action}, By: {by_string or 'N/A'}, Selector: {selector or 'N/A'}, Value: {value or 'N/A'}")
 
-        if action not in ["Buka URL", "Tunggu URL Mengandung", "Tidur", "Gulir ke Elemen", "Klik Elemen via JS"] and (not by or not selector):
+        if action not in ["Buka URL", "Tunggu URL Mengandung", "Tidur", "Beralih ke Konten Utama"] and (not by or not selector):
             raise ValueError(f"Aksi '{action}' memerlukan 'By' dan 'Selector' yang valid.")
 
         wait = WebDriverWait(self.driver, 10)
@@ -86,6 +86,17 @@ class SeleniumWorker(QObject):
         elif action == "Isi Teks":
             element = wait.until(EC.visibility_of_element_located((by, selector)))
             element.clear(); element.send_keys(value)
+        elif action == "Beralih ke Iframe":
+            self.progress.emit(f"    -> Beralih fokus ke iframe '{selector}'...")
+            wait.until(EC.frame_to_be_available_and_switch_to_it((by, selector)))
+            self.progress.emit("    -> Berhasil beralih ke iframe.")
+        elif action == "Beralih ke Konten Utama":
+            self.progress.emit("    -> Kembali ke konteks halaman utama...")
+            self.driver.switch_to.default_content()
+            self.progress.emit("    -> Berhasil kembali ke halaman utama.")
+        elif action == "Tunggu Elemen Ada di DOM":
+            wait.until(EC.presence_of_element_located((by, selector)))
+            self.progress.emit("    -> Elemen ditemukan di dalam DOM.")
         elif action == "Centang Checkbox (Ensure Checked)":
             element = wait.until(EC.presence_of_element_located((by, selector)))
             if not element.is_selected(): element.click(); self.progress.emit("    -> Checkbox dicentang.")
@@ -135,6 +146,10 @@ class SeleniumWorker(QObject):
         elif action == "Klik Elemen via JS":
             element = wait.until(EC.presence_of_element_located((by, selector)))
             self.driver.execute_script("arguments[0].click();", element)
+            self.progress.emit("    -> Elemen diklik menggunakan JavaScript.")
+        elif action == "Tunggu Elemen Siap Diklik":
+            wait.until(EC.element_to_be_clickable((by, selector)))
+            self.progress.emit("    -> Elemen siap untuk diklik.")
         else:
             raise NotImplementedError(f"Aksi '{action}' tidak dikenali.")
 
@@ -221,7 +236,7 @@ class ActionDialog(QDialog):
             "Tunggu Elemen Muncul", "Tidur", "Tunggu Elemen Hilang", "Tunggu URL Mengandung",
             "Verifikasi Teks Elemen", "Verifikasi Elemen TIDAK Muncul",
             "Centang Checkbox (Ensure Checked)", "Hapus Centang Checkbox (Ensure Unchecked)",
-            "Verifikasi Checkbox Tercentang", "Verifikasi Checkbox Tidak Tercentang", "Gulir ke Elemen", "Klik Elemen via JS"
+            "Verifikasi Checkbox Tercentang", "Verifikasi Checkbox Tidak Tercentang", "Gulir ke Elemen", "Klik Elemen via JS", "Beralih ke Iframe", "Beralih ke Konten Utama" 
         ])
         self.by_combo = QComboBox(); self.by_combo.addItems(["ID", "XPath", "Name", "Class Name", "CSS Selector", "Link Text"])
         self.selector_input = QLineEdit(); self.value_input = QLineEdit()
@@ -235,14 +250,14 @@ class ActionDialog(QDialog):
         self.update_ui_for_action(self.action_combo.currentText())
 
     def update_ui_for_action(self, action_text):
-        selector_is_needed = action_text not in ["Buka URL", "Tunggu URL Mengandung"]
-        value_is_needed = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen"]
-        self.by_combo.setVisible(selector_is_needed)
-        self.selector_input.setVisible(selector_is_needed)
-        self.value_input.setVisible(value_is_needed)
-        self.layout.labelForField(self.by_combo).setVisible(selector_is_needed)
-        self.layout.labelForField(self.selector_input).setVisible(selector_is_needed)
-        self.layout.labelForField(self.value_input).setVisible(value_is_needed)
+        needs_selector = action_text not in ["Buka URL", "Tunggu URL Mengandung"]
+        needs_value = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen", "Tidur"]
+        self.by_combo.setVisible(needs_selector)
+        self.selector_input.setVisible(needs_selector)
+        self.value_input.setVisible(needs_value)
+        self.layout.labelForField(self.by_combo).setVisible(needs_selector)
+        self.layout.labelForField(self.selector_input).setVisible(needs_selector)
+        self.layout.labelForField(self.value_input).setVisible(needs_value)
 
     def get_data(self):
         return {
@@ -513,8 +528,17 @@ class SettingsDialog(QDialog):
         flow_button_layout = QHBoxLayout()
         add_flow_btn = QPushButton("Tambah"); add_flow_btn.clicked.connect(self.add_flow)
         remove_flow_btn = QPushButton("Hapus"); remove_flow_btn.clicked.connect(self.remove_flow)
-        move_flow_up_btn = QPushButton(); move_flow_up_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowUp)); move_flow_up_btn.clicked.connect(lambda: self.move_flow_item(-1))
-        move_flow_down_btn = QPushButton(); move_flow_down_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)); move_flow_down_btn.clicked.connect(lambda: self.move_flow_item(1))
+        
+        # --- PERUBAHAN DIMULAI DI SINI ---
+        move_flow_up_btn = QPushButton("↑") # Ganti ikon dengan teks
+        # BARIS DI BAWAH INI DIHAPUS: move_flow_up_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowUp))
+        move_flow_up_btn.clicked.connect(lambda: self.move_flow_item(-1))
+        
+        move_flow_down_btn = QPushButton("↓") # Ganti ikon dengan teks
+        # BARIS DI BAWAH INI DIHAPUS: move_flow_down_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown))
+        move_flow_down_btn.clicked.connect(lambda: self.move_flow_item(1))
+        # --- AKHIR DARI PERUBAHAN PERTAMA ---
+        
         flow_button_layout.addWidget(add_flow_btn); flow_button_layout.addWidget(remove_flow_btn)
         flow_button_layout.addStretch()
         flow_button_layout.addWidget(move_flow_up_btn); flow_button_layout.addWidget(move_flow_down_btn)
@@ -546,8 +570,17 @@ class SettingsDialog(QDialog):
         actions_layout.addWidget(self.actions_table)
         
         action_button_layout = QHBoxLayout(); add_action_btn = QPushButton("Tambah Aksi"); add_action_btn.clicked.connect(self.add_action); remove_action_btn = QPushButton("Hapus Aksi"); remove_action_btn.clicked.connect(self.remove_action)
-        move_action_up_btn = QPushButton("Atas"); move_action_up_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowUp)); move_action_up_btn.clicked.connect(lambda: self.move_action(-1))
-        move_action_down_btn = QPushButton("Bawah"); move_action_down_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)); move_action_down_btn.clicked.connect(lambda: self.move_action(1))
+
+        # --- PERUBAHAN DIMULAI DI SINI ---
+        move_action_up_btn = QPushButton("Atas")
+        # BARIS DI BAWAH INI DIHAPUS: move_action_up_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowUp))
+        move_action_up_btn.clicked.connect(lambda: self.move_action(-1))
+        
+        move_action_down_btn = QPushButton("Bawah")
+        # BARIS DI BAWAH INI DIHAPUS: move_action_down_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown))
+        move_action_down_btn.clicked.connect(lambda: self.move_action(1))
+        # --- AKHIR DARI PERUBAHAN KEDUA ---
+
         action_button_layout.addWidget(add_action_btn); action_button_layout.addWidget(remove_action_btn); action_button_layout.addStretch(); action_button_layout.addWidget(move_action_up_btn); action_button_layout.addWidget(move_action_down_btn)
         actions_layout.addLayout(action_button_layout)
         
@@ -637,7 +670,6 @@ class SettingsDialog(QDialog):
         needs_resave = False
         if self.flows_data:
             for name, data in self.flows_data.items():
-                # This migration logic is correct, but it causes the bug in start_test
                 if isinstance(data, dict) and 'role' in data:
                     self.flows_data[name] = {'actions': data.get('actions', [])}
                     needs_resave = True
@@ -652,8 +684,8 @@ class SettingsDialog(QDialog):
         super().accept()
 
     def _update_row_editability(self, row, action_text):
-        selector_needed = action_text not in ["Buka URL", "Tunggu URL Mengandung"]
-        value_needed = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen", "Tidur", "Gulir ke Elemen", "Klik Elemen via JS"]
+        selector_needed = action_text not in ["Buka URL", "Tunggu URL Mengandung", "Tidur"]
+        value_needed = action_text in ["Buka URL", "Isi Teks", "Tunggu URL Mengandung", "Verifikasi Teks Elemen", "Tidur"]
         disabled_color = self.palette().color(QPalette.ColorRole.Window).lighter(110)
         base_color = self.palette().color(QPalette.ColorRole.Base)
         for col, item_key in [(1, "by"), (2, "selector"), (3, "value")]:

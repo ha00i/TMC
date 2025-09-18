@@ -1,0 +1,41 @@
+Preparing to test environment: 'SUUD DEV'...
+Menggunakan kredensial yang aktif untuk environment 'SUUD DEV'...
+Tes akan dijalankan menggunakan user: admin@admin.com (Role: Administrator)
+Memulai rangkaian pengujian...
+Menyiapkan driver untuk firefox...
+
+--- Menjalankan Alur: 01.Test_login_akurat ---
+  - Aksi: Buka URL, By: N/A, Selector: N/A, Value: http://simapro.ddns.net:801/
+  - Aksi: Isi Teks, By: ID, Selector: email, Value: admin@admin.com
+DEBUG: Selector='email', Tag=input, Text='', Displayed=True, Enabled=True
+  - Aksi: Isi Teks, By: ID, Selector: password, Value: admin
+DEBUG: Selector='password', Tag=input, Text='', Displayed=True, Enabled=True
+  - Aksi: Klik Elemen, By: XPath, Selector: //label[@for='validation'], Value: N/A
+DEBUG: Selector='//label[@for='validation']', Tag=label, Text='User Validation', Displayed=True, Enabled=True
+  - Aksi: Klik Elemen, By: ID, Selector: login, Value: N/A
+DEBUG: Selector='login', Tag=a, Text='Login', Displayed=True, Enabled=True
+  - Aksi: Verifikasi Elemen TIDAK Muncul, By: ID, Selector: swal2-content, Value: N/A
+  - Verifikasi: Memastikan elemen 'swal2-content' TIDAK muncul (max 5 detik)...
+    -> Verifikasi Berhasil: Elemen tidak muncul seperti yang diharapkan.
+  - Aksi: Tidur, By: N/A, Selector: N/A, Value: 4
+    -> Jeda selama 4.0 detik...
+  - Aksi: Klik Elemen, By: XPath, Selector: //aside//p[text()='Dashboard']/ancestor::a[1], Value: N/A
+DEBUG: Selector='//aside//p[text()='Dashboard']/ancestor::a[1]', Tag=a, Text='Dashboard', Displayed=True, Enabled=True
+  - Aksi: Verifikasi Elemen TIDAK Muncul, By: ID, Selector: swal2-content, Value: N/A
+  - Verifikasi: Memastikan elemen 'swal2-content' TIDAK muncul (max 5 detik)...
+    -> Verifikasi Berhasil: Elemen tidak muncul seperti yang diharapkan.
+
+--- Menjalankan Alur: 02.Master Barang - Input Sukses ---
+  - Aksi: Klik Elemen, By: XPath, Selector: //aside//p[normalize-space()='Master Data']/ancestor::a[1], Value: N/A
+DEBUG: Selector='//aside//p[normalize-space()='Master Data']/ancestor::a[1]', Tag=a, Text='Master Data', Displayed=True, Enabled=True
+  - Aksi: Klik Elemen, By: XPath, Selector: //aside//p[normalize-space()='Barang']/ancestor::a[1], Value: N/A
+DEBUG: Selector='//aside//p[normalize-space()='Barang']/ancestor::a[1]', Tag=a, Text='Barang', Displayed=True, Enabled=True
+  - Aksi: Klik Elemen, By: XPath, Selector: //aside//p[normalize-space()='Kelompok Barang']/ancestor::a[1], Value: N/A
+DEBUG: Selector='//aside//p[normalize-space()='Kelompok Barang']/ancestor::a[1]', Tag=a, Text='Kelompok Barang', Displayed=True, Enabled=True
+  - Aksi: Tunggu Elemen Ada di DOM, By: XPath, Selector: //a[@id='new' and contains(., 'New')], Value: N/A
+Error WebDriver: Browser mungkin ditutup atau terjadi masalah koneksi.
+Detail: 
+
+--- RESULT: FAILED ---
+Error WebDriver: Browser mungkin ditutup atau terjadi masalah koneksi. Detail: 
+Menutup browser...

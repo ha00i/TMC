@@ -1,5 +1,5 @@
 {
-    "01.Test_login_akurat": {
+    "01. Test_login_akurat": {
         "actions": [
             {
                 "action": "Buka URL",
@@ -38,6 +38,12 @@
                 "value": ""
             },
             {
+                "action": "Tidur",
+                "by": "",
+                "selector": "",
+                "value": "4"
+            },
+            {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
@@ -51,18 +57,12 @@
             }
         ]
     },
-    "02.Master Barang - Input Sukses": {
+    "02. Master Barang - Input Kelompok Barang": {
         "actions": [
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//aside//p[normalize-space()='Master Data']/ancestor::a[1]",
-                "value": ""
-            },
-            {
-                "action": "Tunggu Elemen Muncul",
-                "by": "XPath",
-                "selector": "//aside//p[normalize-space()='Master Data']/ancestor::li[contains(@class, 'menu-open')]",
                 "value": ""
             },
             {
@@ -72,12 +72,6 @@
                 "value": ""
             },
             {
-                "action": "Tunggu Elemen Muncul",
-                "by": "XPath",
-                "selector": "//aside//p[normalize-space()='Barang']/ancestor::li[contains(@class, 'menu-open')]",
-                "value": ""
-            },
-            {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//aside//p[normalize-space()='Kelompok Barang']/ancestor::a[1]",
@@ -86,35 +80,95 @@
             {
                 "action": "Tunggu Elemen Muncul",
                 "by": "XPath",
-                "selector": "//aside//p[normalize-space()='Kelompok Barang']/ancestor::a[1]",
+                "selector": "//div[@id='panel-kelompokbarang']//iframe",
                 "value": ""
             },
             {
-                "action": "Tidur",
-                "by": "",
-                "selector": "",
-                "value": "8"
-            },
-            {
-                "action": "Buka Panel Collapse",
-                "by": "ID",
-                "selector": "collapseNew",
+                "action": "Beralih ke Iframe",
+                "by": "XPath",
+                "selector": "//div[@id='panel-kelompokbarang']//iframe",
                 "value": ""
             },
             {
                 "action": "Tunggu Elemen Muncul",
+                "by": "ID",
+                "selector": "tableList_info",
+                "value": ""
+            },
+            {
+                "action": "Tunggu Elemen Hilang",
+                "by": "CSS Selector",
+                "selector": "div.blockUI.blockOverlay",
+                "value": ""
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "ID",
+                "selector": "new",
+                "value": ""
+            },
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "ID",
+                "selector": "name-input",
+                "value": ""
+            },
+            {
+                "action": "Isi Teks",
+                "by": "ID",
+                "selector": "name-input",
+                "value": "Test 1"
+            },
+            {
+                "action": "Klik Elemen",
                 "by": "XPath",
-                "selector": "//div[@id='collapseNew' and contains(@class, 'show')]",
+                "selector": "//button[@type='submit' and contains(., 'Save')]",
+                "value": ""
+            },
+            {
+                "action": "Tunggu Elemen Hilang",
+                "by": "CSS Selector",
+                "selector": "div.blockUI.blockOverlay",
+                "value": ""
+            },
+            {
+                "action": "Isi Teks",
+                "by": "XPath",
+                "selector": "//tfoot//input[@placeholder='Search']",
+                "value": "Test 1"
+            },
+            {
+                "action": "Tunggu Elemen Hilang",
+                "by": "CSS Selector",
+                "selector": "div.blockUI.blockOverlay",
+                "value": ""
+            },
+            {
+                "action": "Verifikasi Teks Elemen",
+                "by": "XPath",
+                "selector": "//tbody/tr[1]/td[2]",
+                "value": "Test 1"
+            },
+            {
+                "action": "Beralih ke Konten Utama",
+                "by": "",
+                "selector": "",
                 "value": ""
             }
         ]
     },
-    "03.test_logout": {
+    "03. test_logout": {
         "actions": [
+            {
+                "action": "Tidur",
+                "by": "",
+                "selector": "",
+                "value": "4"
+            },
             {
                 "action": "Tunggu Elemen Muncul",
                 "by": "XPath",
-                "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
+                "selector": "//aside//p[text()='Kelompok Barang']/ancestor::a[1]",
                 "value": ""
             },
             {
