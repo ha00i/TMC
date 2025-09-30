@@ -5,73 +5,64 @@
                 "action": "Buka URL",
                 "by": "",
                 "selector": "",
-                "value": "{URL}"
+                "value": "{URL}",
+                "status": "DONE"
             },
             {
                 "action": "Isi Teks",
                 "by": "ID",
                 "selector": "email",
-                "value": "{USERNAME}"
+                "value": "{USERNAME}",
+                "status": "DONE"
             },
             {
                 "action": "Isi Teks",
                 "by": "ID",
                 "selector": "password",
-                "value": "{PASSWORD}"
+                "value": "{PASSWORD}",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//label[@for='validation']",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "ID",
                 "selector": "login",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Verifikasi Elemen TIDAK Muncul",
                 "by": "ID",
                 "selector": "swal2-content",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Tidur",
                 "by": "",
                 "selector": "",
-                "value": "4"
+                "value": "4",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Verifikasi Elemen TIDAK Muncul",
                 "by": "ID",
                 "selector": "swal2-content",
-                "value": ""
-            },
-            {
-                "action": "Beralih ke Iframe",
-                "by": "XPath",
-                "selector": "//div[@id='panel-dashboard']//iframe",
-                "value": ""
-            },
-            {
-                "action": "Klik Elemen via JS",
-                "by": "CSS Selector",
-                "selector": "div#tabpanel li.active a.btn-iframe-close",
-                "value": ""
-            },
-            {
-                "action": "Beralih ke Konten Utama",
-                "by": "",
-                "selector": "",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             }
         ]
     },
@@ -81,103 +72,119 @@
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//aside//p[normalize-space()='Master Data']/ancestor::a[1]",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//aside//p[normalize-space()='Barang']/ancestor::a[1]",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//aside//p[normalize-space()='Kelompok Barang']/ancestor::a[1]",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Tunggu Elemen Muncul",
                 "by": "XPath",
                 "selector": "//div[@id='panel-kelompokbarang']//iframe",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Beralih ke Iframe",
                 "by": "XPath",
                 "selector": "//div[@id='panel-kelompokbarang']//iframe",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Tunggu Elemen Muncul",
                 "by": "ID",
                 "selector": "tableList_info",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Tunggu Elemen Hilang",
                 "by": "CSS Selector",
                 "selector": "div.blockUI.blockOverlay",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "ID",
                 "selector": "new",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Tunggu Elemen Muncul",
                 "by": "ID",
                 "selector": "name-input",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Isi Teks",
                 "by": "ID",
                 "selector": "name-input",
-                "value": "Test 1"
+                "value": "Test 1",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//button[@type='submit' and contains(., 'Save')]",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Tunggu Elemen Hilang",
                 "by": "CSS Selector",
                 "selector": "div.blockUI.blockOverlay",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Isi Teks",
                 "by": "XPath",
                 "selector": "//tfoot//input[@placeholder='Search']",
-                "value": "Test 1"
+                "value": "Test 1",
+                "status": "DONE"
             },
             {
                 "action": "Tunggu Elemen Hilang",
                 "by": "CSS Selector",
                 "selector": "div.blockUI.blockOverlay",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Verifikasi Teks Elemen",
                 "by": "XPath",
                 "selector": "//tbody/tr[1]/td[2]",
-                "value": "Test 1"
+                "value": "Test 1",
+                "status": "DONE"
             },
             {
-                "action": "Beralih ke Konten Utama",
-                "by": "",
-                "selector": "",
-                "value": ""
+                "action": "Klik Elemen",
+                "by": "XPath",
+                "selector": "//li[contains(@class, 'active')]//a[@data-widget='iframe-close']",
+                "value": "",
+                "status": "FAILED"
             },
             {
                 "action": "Tidur",
                 "by": "",
                 "selector": "",
-                "value": "2"
+                "value": "3"
             }
         ]
     },

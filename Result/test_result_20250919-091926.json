@@ -5,73 +5,71 @@
                 "action": "Buka URL",
                 "by": "",
                 "selector": "",
-                "value": "{URL}"
+                "value": "{URL}",
+                "status": "DONE"
             },
             {
                 "action": "Isi Teks",
                 "by": "ID",
                 "selector": "email",
-                "value": "{USERNAME}"
+                "value": "{USERNAME}",
+                "status": "DONE"
             },
             {
                 "action": "Isi Teks",
                 "by": "ID",
                 "selector": "password",
-                "value": "{PASSWORD}"
+                "value": "{PASSWORD}",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//label[@for='validation']",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "ID",
                 "selector": "login",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Verifikasi Elemen TIDAK Muncul",
                 "by": "ID",
                 "selector": "swal2-content",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Tidur",
                 "by": "",
                 "selector": "",
-                "value": "4"
+                "value": "4",
+                "status": "DONE"
             },
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//aside//p[text()='Dashboard']/ancestor::a[1]",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
                 "action": "Verifikasi Elemen TIDAK Muncul",
                 "by": "ID",
                 "selector": "swal2-content",
-                "value": ""
+                "value": "",
+                "status": "DONE"
             },
             {
-                "action": "Beralih ke Iframe",
+                "action": "Klik Elemen",
                 "by": "XPath",
-                "selector": "//div[@id='panel-dashboard']//iframe",
-                "value": ""
-            },
-            {
-                "action": "Klik Elemen via JS",
-                "by": "CSS Selector",
-                "selector": "div#tabpanel li.active a.btn-iframe-close",
-                "value": ""
-            },
-            {
-                "action": "Beralih ke Konten Utama",
-                "by": "",
-                "selector": "",
-                "value": ""
+                "selector": "\"//li[contains(@class, 'active')]//a[@data-widget='iframe-close']\"",
+                "value": "",
+                "status": "FAILED"
             }
         ]
     },
@@ -171,6 +169,24 @@
                 "action": "Beralih ke Konten Utama",
                 "by": "",
                 "selector": "",
+                "value": ""
+            },
+            {
+                "action": "Tidur",
+                "by": "",
+                "selector": "",
+                "value": "3"
+            },
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "XPath",
+                "selector": "\"//li[contains(@class, 'active')]//a[@data-widget='iframe-close']\"",
+                "value": ""
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "XPath",
+                "selector": "\"//li[contains(@class, 'active')]//a[@data-widget='iframe-close']\"",
                 "value": ""
             },
             {
