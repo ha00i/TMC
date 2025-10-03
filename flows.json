@@ -56,18 +56,6 @@
                 "value": ""
             },
             {
-                "action": "Beralih ke Iframe",
-                "by": "XPath",
-                "selector": "//div[@id='panel-dashboard']//iframe",
-                "value": ""
-            },
-            {
-                "action": "Klik Elemen via JS",
-                "by": "CSS Selector",
-                "selector": "div#tabpanel li.active a.btn-iframe-close",
-                "value": ""
-            },
-            {
                 "action": "Beralih ke Konten Utama",
                 "by": "",
                 "selector": "",
@@ -186,31 +174,19 @@
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
-                "selector": "//aside//p[normalize-space()='Master Data']/ancestor::a[1]",
-                "value": ""
-            },
-            {
-                "action": "Klik Elemen",
-                "by": "XPath",
-                "selector": "//aside//p[normalize-space()='Barang']/ancestor::a[1]",
-                "value": ""
-            },
-            {
-                "action": "Klik Elemen",
-                "by": "XPath",
                 "selector": "//aside//p[normalize-space()='Kemasan']/ancestor::a[1]",
                 "value": ""
             },
             {
                 "action": "Tunggu Elemen Muncul",
                 "by": "XPath",
-                "selector": "//div[@id='panel-kelompokbarang']//iframe",
+                "selector": "//div[@id='panel-kemasan']//iframe",
                 "value": ""
             },
             {
                 "action": "Beralih ke Iframe",
                 "by": "XPath",
-                "selector": "//div[@id='panel-kelompokbarang']//iframe",
+                "selector": "//div[@id='panel-kemasan']//iframe",
                 "value": ""
             },
             {
@@ -224,6 +200,12 @@
                 "by": "CSS Selector",
                 "selector": "div.blockUI.blockOverlay",
                 "value": ""
+            },
+            {
+                "action": "Tidur",
+                "by": "",
+                "selector": "",
+                "value": "2"
             },
             {
                 "action": "Klik Elemen",
@@ -268,15 +250,9 @@
                 "value": ""
             },
             {
-                "action": "Verifikasi Teks Elemen",
-                "by": "XPath",
-                "selector": "//tbody/tr[1]/td[2]",
-                "value": "Test 1"
-            },
-            {
-                "action": "Klik Elemen",
-                "by": "XPath",
-                "selector": "//li[contains(@class, 'active')]//a[@data-widget='iframe-close']",
+                "action": "Beralih ke Konten Utama",
+                "by": "",
+                "selector": "",
                 "value": ""
             },
             {
@@ -292,31 +268,19 @@
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
-                "selector": "//aside//p[normalize-space()='Master Data']/ancestor::a[1]",
-                "value": ""
-            },
-            {
-                "action": "Klik Elemen",
-                "by": "XPath",
-                "selector": "//aside//p[normalize-space()='Barang']/ancestor::a[1]",
-                "value": ""
-            },
-            {
-                "action": "Klik Elemen",
-                "by": "XPath",
                 "selector": "//aside//p[normalize-space()='Kualitas']/ancestor::a[1]",
                 "value": ""
             },
             {
                 "action": "Tunggu Elemen Muncul",
                 "by": "XPath",
-                "selector": "//div[@id='panel-kelompokbarang']//iframe",
+                "selector": "//div[@id='panel-quality']//iframe",
                 "value": ""
             },
             {
                 "action": "Beralih ke Iframe",
                 "by": "XPath",
-                "selector": "//div[@id='panel-kelompokbarang']//iframe",
+                "selector": "//div[@id='panel-quality']//iframe",
                 "value": ""
             },
             {
@@ -340,19 +304,43 @@
             {
                 "action": "Tunggu Elemen Muncul",
                 "by": "ID",
-                "selector": "name-input",
+                "selector": "date",
                 "value": ""
             },
             {
                 "action": "Isi Teks",
                 "by": "ID",
-                "selector": "name-input",
+                "selector": "date",
+                "value": "2025-10-03"
+            },
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "ID",
+                "selector": "name",
+                "value": ""
+            },
+            {
+                "action": "Isi Teks",
+                "by": "ID",
+                "selector": "name",
                 "value": "Test 1"
             },
             {
                 "action": "Klik Elemen",
                 "by": "XPath",
                 "selector": "//button[@type='submit' and contains(., 'Save')]",
+                "value": ""
+            },
+            {
+                "action": "Tunggu Elemen Muncul",
+                "by": "ID",
+                "selector": "complete-master",
+                "value": ""
+            },
+            {
+                "action": "Klik Elemen",
+                "by": "ID",
+                "selector": "complete-master",
                 "value": ""
             },
             {
